@@ -9,7 +9,7 @@ import { useTheme } from '../../context/ThemeContext'
 import { useAuth } from '../../context/AuthContext'
 
 export const NAV = [
-  { to: '/', label: 'Indicadores', icon: LayoutDashboard, end: true },
+  { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/pool', label: 'Pool de Incidencias', icon: Inbox, end: false },
   { to: '/amr', label: 'Incidencias AMR', icon: Bot, end: false },
   { to: '/aud', label: 'Auditorías Reaba', icon: ClipboardCheck, end: false },

@@ -38,7 +38,6 @@ export default function Dashboard() {
     const hoyIso = dias[dias.length - 1] ?? ''
     const ayerIso = dias[dias.length - 2] ?? ''
     const countDay = (iso: string) => amrAud.filter(r => toISO(r.fecha) === iso).length
-    const cerrDay = (iso: string) => amrAud.filter(r => r.status === 'Cerrado' && toISO(r.fecha_cierre || '') === iso).length
     const pct = (a: number, b: number) => (b === 0 ? null : Math.round(((a - b) / b) * 100))
 
     const ult7 = dias.slice(-7)
@@ -121,12 +120,12 @@ export default function Dashboard() {
       {/* ===== Cabecera ===== */}
       <div className="flex flex-wrap items-center gap-3">
         <div>
-          <h2 className="text-xl font-extrabold tracking-tight">Centro de Mando</h2>
-          <p className="text-xs text-muted">Visión operativa en vivo · DC Punta Negra</p>
+          <h2 className="text-xl font-extrabold tracking-tight">Indicadores de Gestión</h2>
+          <p className="text-xs text-muted">Sistema de Gestión de Incidencias · CD Punta Negra</p>
         </div>
         <div className="ml-auto flex flex-wrap items-center gap-2">
           <span className="flex items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-wider text-muted">
-            <CalendarDays size={12} /> Datos al {m.hoyFull}
+            <CalendarDays size={12} /> Actualizado al {m.hoyFull}
           </span>
         </div>
       </div>
@@ -153,7 +152,7 @@ export default function Dashboard() {
             </p>
             <p className="mt-2 whitespace-nowrap font-mono text-3xl font-bold tabular-nums tracking-tight xl:text-4xl">{fmtMoney(m.valorizado)}</p>
             <div className="mt-4 flex flex-wrap gap-2">
-              {[`${m.unidades} und retenidas`, `${m.skus} SKUs`, `${m.nCrit} críticas >8h`].map(t => (
+              {[`${m.unidades} und`, `${m.skus} SKUs`, `${m.nCrit} críticas >8h`].map(t => (
                 <span key={t} className="rounded-full border border-white/25 bg-white/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider">
                   {t}
                 </span>
@@ -178,7 +177,7 @@ export default function Dashboard() {
               </div>
             </div>
             <ul className="min-w-0 flex-1 space-y-2">
-              <li className="text-[10px] font-bold uppercase tracking-[0.08em] text-muted">Estado del pool</li>
+              <li className="text-[10px] font-bold uppercase tracking-[0.08em] text-muted">Incidencias abiertas por Estado</li>
               {([['Pendientes', m.pool.pend, C.pend], ['Revisadas', m.pool.rev, C.rev]] as [string, number, string][]).map(([label, v, color]) => (
                 <li key={label} className="flex items-center gap-2 text-xs font-semibold">
                   <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: color }} />
@@ -195,13 +194,13 @@ export default function Dashboard() {
 
         {/* Tiempos operativos */}
         <div className={`${card} lg:col-span-4`}>
-          <h3 className={tit}>Tiempos operativos</h3>
-          <p className="mt-0.5 text-[11px] text-muted">Eficiencia de resolución del equipo</p>
+          <h3 className={tit}>Tiempos de solución de Incidencias</h3>
+          <p className="mt-0.5 text-[11px] text-muted">Eficiencia de resolución</p>
           <div className="mt-4 grid grid-cols-3 divide-x divide-line">
             <div className="pr-3">
-              <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-muted">MTTR cierre</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-muted">Horas de cierre</p>
               <p className="mt-1 font-mono text-xl font-bold tabular-nums">{m.mttr}</p>
-              <p className="mt-0.5 text-[10px] leading-tight text-muted">promedio histórico</p>
+              <p className="mt-0.5 text-[10px] leading-tight text-muted">promedio de cierre</p>
             </div>
             <div className="px-3">
               <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-muted">SLA &lt;8h</p>
@@ -217,9 +216,9 @@ export default function Dashboard() {
               <p className="mt-0.5 text-[10px] leading-tight text-muted">cerradas a tiempo</p>
             </div>
             <div className="pl-3">
-              <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-muted">Edad abiertas</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-muted">Horas Abiertas</p>
               <p className="mt-1 font-mono text-xl font-bold tabular-nums">{m.edad}</p>
-              <p className="mt-0.5 text-[10px] leading-tight text-muted">promedio en piso</p>
+              <p className="mt-0.5 text-[10px] leading-tight text-muted">promedio sin cerrar</p>
             </div>
           </div>
         </div>
@@ -229,7 +228,7 @@ export default function Dashboard() {
       <div className="grid gap-4 lg:grid-cols-3">
         <div className={card}>
           <h3 className={tit}>Incidencias por área y estado</h3>
-          <p className="mt-0.5 text-[11px] text-muted">Decanting y Reabasto · histórico completo</p>
+          <p className="mt-0.5 text-[11px] text-muted">Decanting y Reabasto</p>
           <div className="mt-4 space-y-3">
             {m.porArea.map(a => (
               <div key={a.area}>
@@ -253,8 +252,8 @@ export default function Dashboard() {
         </div>
 
         <div className={card}>
-          <h3 className={tit}>Top SKUs reincidentes</h3>
-          <p className="mt-0.5 text-[11px] text-muted">Histórico AMR + Reaba · 3 estados</p>
+          <h3 className={tit}>Top SKUs</h3>
+          <p className="mt-0.5 text-[11px] text-muted">SKUs con mayor tasa de incidencias</p>
           <ul className="mt-4 space-y-3">
             {m.topSkus.map(s => (
               <li key={s.codigo}>
@@ -274,8 +273,8 @@ export default function Dashboard() {
         </div>
 
         <div className={card}>
-          <h3 className={tit}>Ranking de valorizado por producto</h3>
-          <p className="mt-0.5 text-[11px] text-muted">Solo incidencias abiertas</p>
+          <h3 className={tit}>Ranking de SKUs</h3>
+          <p className="mt-0.5 text-[11px] text-muted">Incidencias pendientes de cierre</p>
           <ol className="mt-4 space-y-3">
             {m.ranking.map((p, i) => (
               <li key={p.codigo}>
@@ -306,11 +305,9 @@ export default function Dashboard() {
           <div className="flex items-center justify-between">
             <div>
               <h3 className={tit}>Tendencia de incidencias · 7 días</h3>
-              <p className="mt-0.5 text-[11px] text-muted">AMR + Auditorías Reaba registradas por día</p>
+              <p className="mt-0.5 text-[11px] text-muted">Incidencias registradas por dia</p>
             </div>
-            <span className="rounded-full border border-line bg-surface2 px-2.5 py-1 font-mono text-[10px] font-bold tabular-nums text-muted">
-              Σ {m.serie.reduce((a, b) => a + b, 0)}
-            </span>
+
           </div>
           <div className="mt-4">
             <LabelRow values={m.serie} />
@@ -323,7 +320,7 @@ export default function Dashboard() {
 
         <div className={card}>
           <h3 className={tit}>Incidencias por tipo y área</h3>
-          <p className="mt-0.5 text-[11px] text-muted">Taxonomía oficial · histórico completo</p>
+          <p className="mt-0.5 text-[11px] text-muted">Total de incidencias registradas</p>
           <div className="mt-4 overflow-x-auto">
             <table className="w-full min-w-[340px] border-collapse text-xs">
               <thead>
@@ -332,7 +329,7 @@ export default function Dashboard() {
                   {['Decant', 'Reabasto', 'Apilad', 'Aframe'].map(h => (
                     <th key={h} className="px-2 py-2 text-center text-[10px] font-bold uppercase tracking-[0.08em] text-muted">{h}</th>
                   ))}
-                  <th className="py-2 pl-2 text-center text-[10px] font-bold uppercase tracking-[0.08em] text-muted">Σ</th>
+                  <th className="py-2 pl-2 text-center text-[10px] font-bold uppercase tracking-[0.08em] text-muted">Total</th>
                 </tr>
               </thead>
               <tbody>
