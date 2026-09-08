@@ -3,8 +3,8 @@ import { INCIDENCIAS, type Incidencia } from '../data/mock'
 import { useAuth } from './AuthContext'
 
 export interface RevisionPayload {
-  turno_picking: string; usuario_picking: string; ubicacion_picking: string
-  fecha_modific_wms: string; ubicacion_hallazgo: string; obs_revision: string
+  turno_picking: string; usuario_picking: string; nombre_picking?: string
+  ubicacion_picking: string; fecha_modific_wms: string; ubicacion_hallazgo: string; obs_revision: string
 }
 
 interface DataCtx {
@@ -17,7 +17,6 @@ const Ctx = createContext<DataCtx>(null!)
 export function DataProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()
   const [rows, setRows] = useState<Incidencia[]>(INCIDENCIAS)
-
   const ahora = () => {
     const d = new Date()
     return {

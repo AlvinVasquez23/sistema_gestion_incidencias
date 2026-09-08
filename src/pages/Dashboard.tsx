@@ -1,46 +1,356 @@
-import { INCIDENCIAS, fmtMoney } from '../data/mock'
-import { AlertTriangle, Clock, CheckCircle2, PackageX } from 'lucide-react'
+import { useMemo } from 'react'
+import {
+  CalendarDays, Clock3, PackageOpen, ClipboardCheck, CheckCircle2, Flame, BellRing,
+} from 'lucide-react'
+import clsx from 'clsx'
+import { useData } from '../context/DataContext'
+import { fmtMoney, TIPOS_MAT } from '../data/mock'
+import KpiMini from '../components/dashboard/KpiMini'
+import { Sparkline, Donut } from '../components/dashboard/charts'
+
+const toISO = (f: string) => { const [d, m, y] = f.split('/'); return `${y}-${m}-${d}` }
+const ddmm = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`
+const tsDe = (f: string, h: string) => {
+  const [d, mo, y] = f.split('/')
+  const [hh, mm, ss] = (h || '00:00:00').split(':')
+  return new Date(+y, +mo - 1, +d, +hh, +mm, +ss || 0).getTime()
+}
+const card = 'rounded-xl border border-line bg-surface p-4 shadow-card'
+const tit = 'text-xs font-bold uppercase tracking-wider text-muted'
+const C = { pend: '#E30613', rev: '#F59E0B', cerr: '#059669' }
+const AREAS_MAT = ['Decanting', 'Reabasto', 'Apilador', 'Aframe']
+
+function LabelRow({ values }: { values: number[] }) {
+  return (
+    <div className="mb-1 flex justify-between font-mono text-[9px] font-bold tabular-nums text-muted">
+      {values.map((v, i) => <span key={i}>{v}</span>)}
+    </div>
+  )
+}
 
 export default function Dashboard() {
-  const abiertas = INCIDENCIAS.filter(i => i.status !== 'Cerrado')
-  const valorizado = abiertas.reduce((s, i) => s + i.valorizado, 0)
-  const kpis = [
-    { label: 'Abiertas', value: abiertas.length, icon: PackageX, tone: 'text-ink' },
-    { label: 'Pendientes', value: abiertas.filter(i => i.status === 'Pendiente').length, icon: Clock, tone: 'text-warn' },
-    { label: 'Revisados', value: abiertas.filter(i => i.status === 'Revisado').length, icon: CheckCircle2, tone: 'text-info' },
-    { label: 'Críticas >8h', value: abiertas.filter(i => i.sla === 'Crítico').length, icon: AlertTriangle, tone: 'text-adecco' },
-  ]
+  const { rows } = useData()
+
+  const m = useMemo(() => {
+    const amrAud = rows.filter(r => r.modulo === 'AMR' || r.modulo === 'AUD')
+    const abiertas = amrAud.filter(r => r.status !== 'Cerrado')
+    const dias = [...new Set(amrAud.map(r => toISO(r.fecha)))].sort()
+    const hoyIso = dias[dias.length - 1] ?? ''
+    const ayerIso = dias[dias.length - 2] ?? ''
+    const countDay = (iso: string) => amrAud.filter(r => toISO(r.fecha) === iso).length
+    const cerrDay = (iso: string) => amrAud.filter(r => r.status === 'Cerrado' && toISO(r.fecha_cierre || '') === iso).length
+    const pct = (a: number, b: number) => (b === 0 ? null : Math.round(((a - b) / b) * 100))
+
+    const ult7 = dias.slice(-7)
+    const serie = ult7.map(countDay)
+
+    const porArea = ['Decanting', 'Reabasto'].map(a => {
+      const rs = rows.filter(r => r.area === a)
+      return {
+        area: a, total: rs.length,
+        pend: rs.filter(r => r.status === 'Pendiente').length,
+        rev: rs.filter(r => r.status === 'Revisado').length,
+        cerr: rs.filter(r => r.status === 'Cerrado').length,
+      }
+    }).filter(x => x.total > 0)
+
+    const matTipo = TIPOS_MAT.map(t => {
+      const celdas = AREAS_MAT.map(a => rows.filter(r => r.tipo === t && r.area === a).length)
+      return { tipo: t, celdas, total: celdas.reduce((x, y) => x + y, 0) }
+    })
+
+    const topSkus = Object.entries(
+      amrAud.reduce<Record<string, { n: number; q: number; d: string }>>((acc, r) => {
+        if (!r.codigo) return acc
+        const e = acc[r.codigo] ?? { n: 0, q: 0, d: r.descripcion }
+        e.n += 1; e.q += r.cantidad
+        acc[r.codigo] = e
+        return acc
+      }, {}),
+    ).map(([codigo, v]) => ({ codigo, ...v })).sort((a, b) => b.n - a.n).slice(0, 4)
+
+    const ranking = Object.entries(
+      rows.reduce<Record<string, { v: number; d: string }>>((acc, r) => {
+        if (!r.codigo || !r.valorizado || r.status === 'Cerrado') return acc
+        const e = acc[r.codigo] ?? { v: 0, d: r.descripcion }
+        e.v += r.valorizado
+        acc[r.codigo] = e
+        return acc
+      }, {}),
+    ).map(([codigo, v]) => ({ codigo, ...v })).sort((a, b) => b.v - a.v).slice(0, 5)
+
+    const cerradas = amrAud.filter(r => r.status === 'Cerrado' && r.fecha_cierre)
+    const horasCierre = cerradas.map(r => (tsDe(r.fecha_cierre as string, r.hora_cierre || '') - tsDe(r.fecha, r.hora)) / 3600000)
+    const mttr = horasCierre.length
+      ? (horasCierre.reduce((a, b) => a + b, 0) / horasCierre.length).toFixed(1) + ' h'
+      : '—'
+    const pctSLA = cerradas.length
+      ? Math.round((horasCierre.filter(h => h <= 8).length / cerradas.length) * 100)
+      : null
+    const edad = abiertas.length
+      ? (abiertas.reduce((s, r) => s + (Date.now() - tsDe(r.fecha, r.hora)) / 3600000, 0) / abiertas.length).toFixed(1) + ' h'
+      : '—'
+
+    return {
+      amrAud,
+      nAbiertas: abiertas.length,
+      nPend: abiertas.filter(r => r.status === 'Pendiente').length,
+      nRev: abiertas.filter(r => r.status === 'Revisado').length,
+      nCrit: abiertas.filter(r => r.sla === 'Crítico').length,
+      nAlert: abiertas.filter(r => r.sla === 'Alerta').length,
+      regHoy: countDay(hoyIso),
+      deltaReg: pct(countDay(hoyIso), countDay(ayerIso)),
+      valorizado: abiertas.reduce((s, r) => s + r.valorizado, 0),
+      unidades: abiertas.reduce((s, r) => s + r.cantidad, 0),
+      skus: new Set(abiertas.map(r => r.codigo).filter(Boolean)).size,
+      ult7, serie, porArea, matTipo, topSkus, ranking,
+      mttr, pctSLA, edad,
+      hoyFull: hoyIso ? `${ddmm(hoyIso)}/${hoyIso.slice(0, 4)}` : '',
+      pool: {
+        pend: amrAud.filter(r => r.status === 'Pendiente').length,
+        rev: amrAud.filter(r => r.status === 'Revisado').length,
+      },
+    }
+  }, [rows])
+
+  const maxSku = m.topSkus[0]?.n ?? 1
+  const maxRank = m.ranking[0]?.v ?? 1
 
   return (
     <div className="space-y-4">
-      {/* Hero valorizado (estilo boceto command-center) */}
-      <div className="rounded-2xl bg-gradient-to-br from-[#10131a] to-[#272a31] p-6 text-white shadow-card dark:border dark:border-line">
-        <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-white/60">
-          Valorizado total de incidencias abiertas
-        </p>
-        <p className="mt-2 font-mono text-4xl font-bold tracking-tight sm:text-5xl">{fmtMoney(valorizado)}</p>
-        <p className="mt-2 text-xs text-white/60">
-          {abiertas.length} incidencias AMR + Auditorías sin cerrar · Punta Negra DC
-        </p>
+      {/* ===== Cabecera ===== */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div>
+          <h2 className="text-xl font-extrabold tracking-tight">Centro de Mando</h2>
+          <p className="text-xs text-muted">Visión operativa en vivo · DC Punta Negra</p>
+        </div>
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          <span className="flex items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-wider text-muted">
+            <CalendarDays size={12} /> Datos al {m.hoyFull}
+          </span>
+        </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-        {kpis.map(k => (
-          <div key={k.label} className="rounded-xl border border-line bg-surface p-4 shadow-card">
-            <div className="flex items-center justify-between">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-muted">{k.label}</p>
-              <k.icon size={16} className={k.tone} />
+      {/* ===== FILA 1: 7 minis en una línea, ancho según contenido ===== */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:flex xl:flex-nowrap xl:gap-3">
+        <KpiMini className="xl:flex-auto" label="Abiertas" value={m.nAbiertas} icon={<PackageOpen size={16} />} tone="info" />
+        <KpiMini className="xl:flex-auto" label="Pendientes" value={m.nPend} icon={<Clock3 size={16} />} tone="warn" />
+        <KpiMini className="xl:flex-auto" label="Revisados" value={m.nRev} icon={<ClipboardCheck size={16} />} tone="info" />
+        <KpiMini className="xl:flex-auto" label="Registradas hoy" value={m.regHoy} icon={<CalendarDays size={16} />} delta={m.deltaReg} />
+        <KpiMini className="xl:flex-auto" label="Críticas >8h" value={m.nCrit} icon={<Flame size={16} />} tone="danger" />
+        <KpiMini className="xl:flex-auto" label="En alerta" value={m.nAlert} icon={<BellRing size={16} />} tone="warn" />
+        <KpiMini className="xl:flex-auto" label="SLA <8h" value={m.pctSLA === null ? '—' : `${m.pctSLA}%`} icon={<CheckCircle2 size={16} />} tone="ok" />
+      </div>
+
+      {/* ===== FILA 2: valorizado total + tiempos operativos ===== */}
+      <div className="grid gap-4 lg:grid-cols-12">
+        <div className="grid overflow-hidden rounded-xl border border-line shadow-card md:grid-cols-2 lg:col-span-8">
+          {/* Zona roja: valorizado */}
+          <div className="relative bg-gradient-to-br from-adecco via-[#b8050f] to-[#7a030a] p-5 text-white">
+            <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-white/10 blur-2xl" />
+            <p className="font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-white/70">
+              Valorizado total de incidencias abiertas
+            </p>
+            <p className="mt-2 whitespace-nowrap font-mono text-3xl font-bold tabular-nums tracking-tight xl:text-4xl">{fmtMoney(m.valorizado)}</p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {[`${m.unidades} und retenidas`, `${m.skus} SKUs`, `${m.nCrit} críticas >8h`].map(t => (
+                <span key={t} className="rounded-full border border-white/25 bg-white/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider">
+                  {t}
+                </span>
+              ))}
             </div>
-            <p className="mt-2 font-mono text-3xl font-bold">{k.value}</p>
           </div>
-        ))}
+          {/* Estado del pool: distribución original (dona izquierda + leyenda derecha) */}
+          <div className="flex items-center gap-4 bg-surface p-5">
+            <div className="relative shrink-0">
+              <Donut
+                size={110}
+                segments={[
+                  { value: m.pool.pend, color: C.pend, label: 'Pendientes' },
+                  { value: m.pool.rev, color: C.rev, label: 'Revisadas' },
+                ]}
+              />
+              <div className="absolute inset-0 grid place-items-center">
+                <div className="text-center">
+                  <p className="font-mono text-xl font-bold tabular-nums">{m.nAbiertas}</p>
+                  <p className="text-[8px] font-bold uppercase tracking-wider text-muted">abiertas</p>
+                </div>
+              </div>
+            </div>
+            <ul className="min-w-0 flex-1 space-y-2">
+              <li className="text-[10px] font-bold uppercase tracking-[0.08em] text-muted">Estado del pool</li>
+              {([['Pendientes', m.pool.pend, C.pend], ['Revisadas', m.pool.rev, C.rev]] as [string, number, string][]).map(([label, v, color]) => (
+                <li key={label} className="flex items-center gap-2 text-xs font-semibold">
+                  <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: color }} />
+                  <span className="flex-1 truncate">{label}</span>
+                  <span className="font-mono tabular-nums">{v}</span>
+                  <span className="w-9 text-right font-mono tabular-nums text-muted">
+                    {Math.round((v / (m.nAbiertas || 1)) * 100)}%
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+
+        {/* Tiempos operativos */}
+        <div className={`${card} lg:col-span-4`}>
+          <h3 className={tit}>Tiempos operativos</h3>
+          <p className="mt-0.5 text-[11px] text-muted">Eficiencia de resolución del equipo</p>
+          <div className="mt-4 grid grid-cols-3 divide-x divide-line">
+            <div className="pr-3">
+              <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-muted">MTTR cierre</p>
+              <p className="mt-1 font-mono text-xl font-bold tabular-nums">{m.mttr}</p>
+              <p className="mt-0.5 text-[10px] leading-tight text-muted">promedio histórico</p>
+            </div>
+            <div className="px-3">
+              <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-muted">SLA &lt;8h</p>
+              <p className={clsx(
+                'mt-1 font-mono text-xl font-bold tabular-nums',
+                m.pctSLA === null ? 'text-muted'
+                  : m.pctSLA >= 90 ? 'text-ok'
+                  : m.pctSLA >= 70 ? 'text-warn'
+                  : 'text-adecco dark:text-[#ff4d58]',
+              )}>
+                {m.pctSLA === null ? '—' : `${m.pctSLA}%`}
+              </p>
+              <p className="mt-0.5 text-[10px] leading-tight text-muted">cerradas a tiempo</p>
+            </div>
+            <div className="pl-3">
+              <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-muted">Edad abiertas</p>
+              <p className="mt-1 font-mono text-xl font-bold tabular-nums">{m.edad}</p>
+              <p className="mt-0.5 text-[10px] leading-tight text-muted">promedio en piso</p>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <div className="rounded-xl border border-dashed border-line bg-surface p-8 text-center">
-        <p className="text-sm font-bold">Paso 1 completado ✅</p>
-        <p className="mt-1 text-xs text-muted">
-          En el Paso 2 construimos las tablas de los módulos con filtros + botón Limpiar y detalle.
-        </p>
+      {/* ===== FILA 3: áreas + top SKUs + ranking valorizado ===== */}
+      <div className="grid gap-4 lg:grid-cols-3">
+        <div className={card}>
+          <h3 className={tit}>Incidencias por área y estado</h3>
+          <p className="mt-0.5 text-[11px] text-muted">Decanting y Reabasto · histórico completo</p>
+          <div className="mt-4 space-y-3">
+            {m.porArea.map(a => (
+              <div key={a.area}>
+                <div className="mb-1 flex items-center justify-between text-xs font-semibold">
+                  <span>{a.area}</span>
+                  <span className="font-mono tabular-nums text-muted">{a.total}</span>
+                </div>
+                <div className="flex h-2.5 overflow-hidden rounded-full bg-surface2">
+                  <div className="bg-[#E30613]" style={{ width: `${(a.pend / a.total) * 100}%` }} title={`Pendiente: ${a.pend}`} />
+                  <div className="bg-[#F59E0B]" style={{ width: `${(a.rev / a.total) * 100}%` }} title={`Revisado: ${a.rev}`} />
+                  <div className="bg-[#059669]" style={{ width: `${(a.cerr / a.total) * 100}%` }} title={`Cerrado: ${a.cerr}`} />
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-4 flex gap-4 text-[10px] font-bold uppercase tracking-wider text-muted">
+            <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#E30613]" /> Pendiente</span>
+            <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#F59E0B]" /> Revisado</span>
+            <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#059669]" /> Cerrado</span>
+          </div>
+        </div>
+
+        <div className={card}>
+          <h3 className={tit}>Top SKUs reincidentes</h3>
+          <p className="mt-0.5 text-[11px] text-muted">Histórico AMR + Reaba · 3 estados</p>
+          <ul className="mt-4 space-y-3">
+            {m.topSkus.map(s => (
+              <li key={s.codigo}>
+                <div className="flex items-center justify-between gap-2 text-xs">
+                  <span className="truncate font-semibold" title={s.d}>{s.d || s.codigo}</span>
+                  <span className="shrink-0 rounded-full border border-line bg-surface2 px-2 py-0.5 font-mono text-[10px] font-bold tabular-nums">
+                    {s.n} inc
+                  </span>
+                </div>
+                <p className="font-mono text-[10px] text-muted">{s.codigo} · {s.q} und</p>
+                <div className="mt-1 h-1.5 rounded-full bg-surface2">
+                  <div className="h-1.5 rounded-full bg-adecco" style={{ width: `${(s.n / maxSku) * 100}%` }} />
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div className={card}>
+          <h3 className={tit}>Ranking de valorizado por producto</h3>
+          <p className="mt-0.5 text-[11px] text-muted">Solo incidencias abiertas</p>
+          <ol className="mt-4 space-y-3">
+            {m.ranking.map((p, i) => (
+              <li key={p.codigo}>
+                <div className="flex items-center justify-between gap-2 text-xs">
+                  <span className="flex min-w-0 items-center gap-2">
+                    <span className="grid h-5 w-5 shrink-0 place-items-center rounded bg-surface2 font-mono text-[10px] font-bold text-muted">
+                      {i + 1}
+                    </span>
+                    <span className="truncate font-semibold" title={p.d}>{p.d || p.codigo}</span>
+                  </span>
+                  <span className="shrink-0 font-mono text-[11px] font-bold tabular-nums text-adecco dark:text-[#ff4d58]">
+                    {fmtMoney(p.v)}
+                  </span>
+                </div>
+                <div className="mt-1 h-1.5 rounded-full bg-surface2">
+                  <div className="h-1.5 rounded-full bg-gradient-to-r from-adecco to-[#ff2e3b]" style={{ width: `${(p.v / maxRank) * 100}%` }} />
+                </div>
+              </li>
+            ))}
+            {m.ranking.length === 0 && <li className="text-xs text-muted">Sin valorizado abierto actualmente.</li>}
+          </ol>
+        </div>
+      </div>
+
+      {/* ===== FILA 4: tendencia + matriz tipo × área ===== */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <div className={card}>
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className={tit}>Tendencia de incidencias · 7 días</h3>
+              <p className="mt-0.5 text-[11px] text-muted">AMR + Auditorías Reaba registradas por día</p>
+            </div>
+            <span className="rounded-full border border-line bg-surface2 px-2.5 py-1 font-mono text-[10px] font-bold tabular-nums text-muted">
+              Σ {m.serie.reduce((a, b) => a + b, 0)}
+            </span>
+          </div>
+          <div className="mt-4">
+            <LabelRow values={m.serie} />
+            <Sparkline values={m.serie} height={140} />
+            <div className="mt-1 flex justify-between font-mono text-[9px] font-bold uppercase tracking-wider text-muted">
+              {m.ult7.map(iso => <span key={iso}>{ddmm(iso)}</span>)}
+            </div>
+          </div>
+        </div>
+
+        <div className={card}>
+          <h3 className={tit}>Incidencias por tipo y área</h3>
+          <p className="mt-0.5 text-[11px] text-muted">Taxonomía oficial · histórico completo</p>
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full min-w-[340px] border-collapse text-xs">
+              <thead>
+                <tr className="border-b border-line text-left">
+                  <th className="py-2 pr-2 text-[10px] font-bold uppercase tracking-[0.08em] text-muted">Tipo</th>
+                  {['Decant', 'Reabasto', 'Apilad', 'Aframe'].map(h => (
+                    <th key={h} className="px-2 py-2 text-center text-[10px] font-bold uppercase tracking-[0.08em] text-muted">{h}</th>
+                  ))}
+                  <th className="py-2 pl-2 text-center text-[10px] font-bold uppercase tracking-[0.08em] text-muted">Σ</th>
+                </tr>
+              </thead>
+              <tbody>
+                {m.matTipo.map(f => (
+                  <tr key={f.tipo} className="border-b border-line/60 last:border-0">
+                    <td className="py-2 pr-2 font-semibold">{f.tipo}</td>
+                    {f.celdas.map((c, i) => (
+                      <td key={i} className="px-2 py-2 text-center font-mono tabular-nums">
+                        {c === 0 ? <span className="text-muted">·</span> : c}
+                      </td>
+                    ))}
+                    <td className="py-2 pl-2 text-center font-mono font-bold tabular-nums">{f.total}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </div>
   )
