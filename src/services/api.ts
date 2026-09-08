@@ -7,6 +7,8 @@ const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? ''
 
 export const apiActiva = () => API_URL.trim() !== ''
 
+console.log('[api.ts] VITE_API_URL leída:', JSON.stringify(API_URL), '| apiActiva:', apiActiva())
+
 async function llamar<T>(action: string, payload: Record<string, unknown> = {}): Promise<T> {
   const res = await fetch(API_URL, {
     method: 'POST',
