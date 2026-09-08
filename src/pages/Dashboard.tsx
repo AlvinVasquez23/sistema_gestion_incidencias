@@ -1,7 +1,6 @@
 import { useMemo } from 'react'
-import {
-  CalendarDays, Clock3, PackageOpen, ClipboardCheck, CheckCircle2, Flame, BellRing,
-} from 'lucide-react'
+import { CalendarDays, Radio, Clock3, PackageOpen, ClipboardCheck, CheckCircle2, Flame, BellRing } from 'lucide-react'
+
 import clsx from 'clsx'
 import { useData } from '../context/DataContext'
 import { fmtMoney, TIPOS_MAT } from '../data/mock'
@@ -29,7 +28,7 @@ function LabelRow({ values }: { values: number[] }) {
 }
 
 export default function Dashboard() {
-  const { rows } = useData()
+  const { rows, fuente, cargando } = useData()
 
   const m = useMemo(() => {
     const amrAud = rows.filter(r => r.modulo === 'AMR' || r.modulo === 'AUD')
@@ -126,6 +125,12 @@ export default function Dashboard() {
         <div className="ml-auto flex flex-wrap items-center gap-2">
           <span className="flex items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-wider text-muted">
             <CalendarDays size={12} /> Actualizado al {m.hoyFull}
+          </span>
+                    <span className={clsx(
+            'flex items-center gap-1.5 rounded-full border px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-wider',
+            fuente === 'apps-script' ? 'border-ok/30 bg-ok/10 text-ok' : 'border-warn/30 bg-warn/10 text-warn',
+          )}>
+            <Radio size={12} /> {fuente === 'apps-script' ? 'Datos: Apps Script' : 'Datos: Mock'}{cargando ? ' · sync…' : ''}
           </span>
         </div>
       </div>
