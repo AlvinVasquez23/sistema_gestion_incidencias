@@ -1,0 +1,31 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --c-bg: 216 220 228;        /* #d8dce4 · lienzo gris marcado: las tarjetas resaltan */
+  --c-surface: 244 245 248;   /* #f4f5f8 · tarjetas off-white, nada de blanco puro */
+  --c-surface2: 233 235 240;  /* #e9ebf0 · inputs y hovers bien definidos */
+  --c-line: 176 183 195;      /* #b0b7c3 · bordes y separadores visibles */
+  --c-ink: 18 21 28;          /* #12151c · texto principal profundo */
+  --c-muted: 82 92 106;       /* #525c6a · texto secundario con contraste real */
+}
+.dark {
+  --c-bg: 16 19 26;
+  --c-surface: 29 32 38;
+  --c-surface2: 39 42 49;
+  --c-line: 35 42 59;
+  --c-ink: 225 226 235;
+  --c-muted: 148 163 184;
+}
+
+html, body, #root { height: 100%; }
+body { @apply bg-bg font-sans text-ink antialiased; }
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { @apply rounded-full bg-line; }
+
+/* Refuerzo de contraste exclusivo del modo light */
+:root:not(.dark) .shadow-card {
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.10), 0 8px 24px rgb(15 23 42 / 0.12);
+}
