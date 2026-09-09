@@ -7,6 +7,7 @@ import AppShell from './components/layout/AppShell'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import ModuloPage from './pages/ModuloPage'
+import { SettingsProvider } from './context/SettingsContext'
 
 function Privado({ children }: { children: ReactElement }) {
   const { user } = useAuth()
@@ -17,22 +18,24 @@ export default function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <DataProvider>
-          <BrowserRouter>
-            <Routes>
-              <Route path="/login" element={<Login />} />
-              <Route path="/" element={<Privado><AppShell /></Privado>}>
-                <Route index element={<Dashboard />} />
-                <Route path="pool" element={<ModuloPage vista="pool" />} />
-                <Route path="amr" element={<ModuloPage vista="amr" />} />
-                <Route path="aud" element={<ModuloPage vista="aud" />} />
-                <Route path="api" element={<ModuloPage vista="api" />} />
-                <Route path="afr" element={<ModuloPage vista="afr" />} />
-              </Route>
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </BrowserRouter>
-        </DataProvider>
+        <SettingsProvider>
+          <DataProvider>
+            <BrowserRouter>
+              <Routes>
+                <Route path="/login" element={<Login />} />
+                <Route path="/" element={<Privado><AppShell /></Privado>}>
+                  <Route index element={<Dashboard />} />
+                  <Route path="pool" element={<ModuloPage key="pool" vista="pool" />} />
+                  <Route path="amr" element={<ModuloPage key="amr" vista="amr" />} />
+                  <Route path="aud" element={<ModuloPage key="aud" vista="aud" />} />
+                  <Route path="api" element={<ModuloPage key="api" vista="api" />} />
+                  <Route path="afr" element={<ModuloPage key="afr" vista="afr" />} />
+                </Route>
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </BrowserRouter>
+          </DataProvider>          
+        </SettingsProvider>
       </AuthProvider>
     </ThemeProvider>
   )

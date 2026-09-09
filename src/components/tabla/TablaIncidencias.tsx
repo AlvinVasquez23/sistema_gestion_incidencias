@@ -5,6 +5,7 @@ import type { Incidencia } from '../../data/mock'
 import { fmtMoney } from '../../data/mock'
 import { Badge, statusTone, slaTone } from '../ui/Badge'
 import { TIT_COLS, type ColKey } from '../../config/vistas'
+import { useSettings } from '../../context/SettingsContext'
 
 interface Props {
   rows: Incidencia[]
@@ -13,6 +14,9 @@ interface Props {
 }
 
 export default function TablaIncidencias({ rows, cols, onVer }: Props) {
+  const { prefs } = useSettings()
+  const padHead = prefs.densidad === 'compacta' ? 'px-3 py-2' : 'px-4 py-3'
+  const padCelda = prefs.densidad === 'compacta' ? 'px-3 py-1.5' : 'px-4 py-3'    
   const celda = (c: ColKey, r: Incidencia): ReactNode => {
     switch (c) {
       case 'fecha':
@@ -74,7 +78,7 @@ export default function TablaIncidencias({ rows, cols, onVer }: Props) {
             {cols.map(c => (
               <th
                 key={c}
-                className="sticky top-0 z-10 whitespace-nowrap border-b border-line bg-surface2 px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-muted"
+                className={clsx('sticky top-0 z-10 whitespace-nowrap border-b border-line bg-surface2 text-[11px] font-bold uppercase tracking-wider text-muted', padHead)}
               >
                 {TIT_COLS[c]}
               </th>
@@ -92,7 +96,7 @@ export default function TablaIncidencias({ rows, cols, onVer }: Props) {
               )}
             >
               {cols.map(c => (
-                <td key={c} className="whitespace-nowrap px-4 py-3 align-middle">{celda(c, r)}</td>
+                <td key={c} className={clsx('whitespace-nowrap align-middle', padCelda)}>{celda(c, r)}</td>
               ))}
             </tr>
           ))}

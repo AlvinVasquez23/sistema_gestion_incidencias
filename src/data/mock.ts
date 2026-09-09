@@ -40,6 +40,7 @@ export interface Incidencia {
   turno_picking?: string; usuario_picking?: string; nombre_picking?: string
   ubicacion_picking?: string; fecha_modific_wms?: string; ubicacion_hallazgo?: string
   obs_revision?: string; usuario_revision?: string; fecha_revision?: string; hora_revision?: string
+  hist_mod?: string
   /* Campos de cierre */
   causa_raiz?: string; usuario_cierre?: string; fecha_cierre?: string; hora_cierre?: string
 }

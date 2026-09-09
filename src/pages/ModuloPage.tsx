@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useMemo, useState, useEffect, type ReactNode } from 'react'
 import clsx from 'clsx'
 import { FilterX, Search, ChevronLeft, ChevronRight, Download } from 'lucide-react'
 import { useData } from '../context/DataContext'
@@ -6,12 +6,13 @@ import { VISTAS, CSV_DE_VISTA } from '../config/vistas'
 import TablaIncidencias from '../components/tabla/TablaIncidencias'
 import DetalleIncidencia from '../components/detalle/DetalleIncidencia'
 import { fmtMoney } from '../data/mock'
+import { useSettings } from '../context/SettingsContext'
 
 const MODULO_DE_VISTA: Record<string, 'AMR' | 'AUD' | 'API' | 'AFR' | null> = {
   pool: null, amr: 'AMR', aud: 'AUD', api: 'API', afr: 'AFR',
 }
 const toISO = (f: string) => { const [d, m, y] = f.split('/'); return `${y}-${m}-${d}` }
-const POR_PAG = 8
+
 const select = 'h-10 shrink-0 rounded-lg border border-line bg-surface2 px-3 text-sm outline-none transition focus:border-adecco'
 
 /* Campo de filtro con label superior (label-caps del design system) */
@@ -24,18 +25,37 @@ function Field({ label, children, className }: { label: string; children: ReactN
   )
 }
 
+/* ===== Filtros independientes por módulo =====
+   Cada vista guarda su propio estado; al volver, lo recupera. */
+interface FiltrosModulo {
+  estado: string; area: string; sla: string
+  desde: string; hasta: string; q: string; pag: number
+}
+const FILTROS_DEFAULT: FiltrosModulo = {
+  estado: 'Todos', area: 'Todas', sla: 'Todos', desde: '', hasta: '', q: '', pag: 1,
+}
+const memoriaFiltros: Record<string, FiltrosModulo> = {}
+
 export default function ModuloPage({ vista }: { vista: string }) {
   const cfg = VISTAS[vista]
   const { rows } = useData()
+  const { prefs } = useSettings()
+  const POR_PAG = prefs.porPagina
 
-  const [estado, setEstado] = useState('Todos')
-  const [area, setArea] = useState('Todas')
-  const [sla, setSla] = useState('Todos')
-  const [desde, setDesde] = useState('')
-  const [hasta, setHasta] = useState('')
-  const [q, setQ] = useState('')
-  const [pag, setPag] = useState(1)
+  const ini = memoriaFiltros[vista] ?? FILTROS_DEFAULT
+  const [estado, setEstado] = useState(ini.estado)
+  const [area, setArea] = useState(ini.area)
+  const [sla, setSla] = useState(ini.sla)
+  const [desde, setDesde] = useState(ini.desde)
+  const [hasta, setHasta] = useState(ini.hasta)
+  const [q, setQ] = useState(ini.q)
+  const [pag, setPag] = useState(ini.pag)
   const [detalle, setDetalle] = useState<string | null>(null)
+
+  /* Guarda el estado de filtros de ESTE módulo cada vez que cambia */
+  useEffect(() => {
+    memoriaFiltros[vista] = { estado, area, sla, desde, hasta, q, pag }
+  }, [vista, estado, area, sla, desde, hasta, q, pag])
 
   /* ===== Filtrado (Pool = SOLO AMR + Auditorías Reaba) ===== */
   const filtradas = useMemo(() => rows.filter(r => {
@@ -99,7 +119,7 @@ export default function ModuloPage({ vista }: { vista: string }) {
           )}
           {cfg.conValorizado && (
             <span className="rounded-full border border-adecco/30 bg-adecco/10 px-3 py-1 font-mono text-xs font-bold tabular-nums text-adecco">
-              Valorizado incidendias pendientes de cierre: {fmtMoney(valorizado)}
+              Valorizado pendientes de cierre: {fmtMoney(valorizado)}
             </span>
           )}
         </div>

@@ -29,4 +29,23 @@ export const api = {
     llamar<unknown>('guardar_revision', { token, id, payload }),
   cerrar: (token: string, id: string, causa: string) =>
     llamar<unknown>('cerrar', { token, id, causa }),
+  nombreWms: (token: string, codigo: string) => llamar<string>('nombre_wms', { token, codigo }),
+  cambiarPassword: (token: string, actual: string, nueva: string) =>
+    llamar<unknown>('cambiar_password', { token, actual, nueva }),
+}
+
+/* Login en crudo: devuelve el JSON tal cual para distinguir
+   credenciales incorrectas (ok:false) de fallo de red (throw) */
+export async function loginApi(usuario: string, password: string) {
+  const res = await fetch(API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ action: 'login', usuario, password }),
+  })
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  return (await res.json()) as {
+    ok: boolean
+    mensaje?: string
+    usuario?: string; nombre?: string; rol?: string; esSupervisor?: boolean; token?: string
+  }
 }

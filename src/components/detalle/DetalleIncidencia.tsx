@@ -1,12 +1,13 @@
-import { useState, type ChangeEvent } from 'react'
-import { X, Save, CheckCircle2 } from 'lucide-react'
+import { useEffect, useState, type ChangeEvent } from 'react'
+import { X, Save, CheckCircle2, ClipboardCheck } from 'lucide-react'
 import clsx from 'clsx'
 import { useData, type RevisionPayload } from '../../context/DataContext'
 import { useAuth } from '../../context/AuthContext'
 import { Badge, statusTone, slaTone } from '../ui/Badge'
 import { fmtMoney, WMS_USERS } from '../../data/mock'
+import { api, apiActiva } from '../../services/api'
 
-const input = 'h-10 w-full rounded-lg border border-line bg-surface2 px-3 text-sm outline-none transition focus:border-adecco focus:ring-2 focus:ring-adecco/20'
+const input = 'h-10 w-full rounded-lg border border-line bg-surface2 px-3 text-sm outline-none transition focus:border-adecco focus:ring-2 focus:ring-adecco/20 disabled:cursor-not-allowed disabled:opacity-60'
 const label = 'mb-1 block text-[11px] font-bold uppercase tracking-wider text-muted'
 
 export default function DetalleIncidencia({ id, onClose }: { id: string; onClose: () => void }) {
@@ -24,23 +25,39 @@ export default function DetalleIncidencia({ id, onClose }: { id: string; onClose
   })
   const [causa, setCausa] = useState('')
   const [mostrarCerrar, setMostrarCerrar] = useState(false)
-  const [msg, setMsg] = useState('')
+  const [aviso, setAviso] = useState<null | { texto: string }>(null)
+  const [editando, setEditando] = useState(() => r?.status !== 'Revisado')
 
   if (!r) return null
 
   const editable = (r.modulo === 'AMR' || r.modulo === 'AUD') && r.status !== 'Cerrado'
-  const nombreWms = form.usuario_picking ? (WMS_USERS[form.usuario_picking.trim()] ?? '') : ''
+  const yaRevisado = r.status === 'Revisado'
+  const [nombreWms, setNombreWms] = useState('')
+  useEffect(() => {
+    const cod = form.usuario_picking.trim()
+    if (!cod) { setNombreWms(''); return }
+    if (!apiActiva()) { setNombreWms(WMS_USERS[cod] ?? ''); return }
+    const t = setTimeout(() => {
+      api.nombreWms(localStorage.getItem('ims_token') ?? user?.usuario ?? '', cod)
+        .then(n => setNombreWms(n || ''))
+        .catch(() => setNombreWms(''))
+    }, 350)
+    return () => clearTimeout(t)
+  }, [form.usuario_picking, user])
 
   const set = (k: keyof RevisionPayload) => (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
     setForm(f => ({ ...f, [k]: e.target.value }))
 
   const guardar = () => {
-    guardarRevision(r.id, { ...form, nombre_picking: nombreWms })
-    setMsg('✅ Revisión guardada · status Revisado')
+    void guardarRevision(r.id, { ...form, nombre_picking: nombreWms })
+    if (yaRevisado) setEditando(false)
+    setAviso({ texto: yaRevisado ? 'Modificación guardada · registrada en el historial' : 'Revisión guardada · status Revisado' })
   }
   const cerrar = () => {
-    if (!causa) { setMsg('⚠️ Selecciona una causa raíz'); return }
-    cerrarIncidencia(r.id, causa); setMostrarCerrar(false); setMsg('✅ Incidencia cerrada')
+    if (!causa) { setAviso({ texto: 'Selecciona una causa raíz para cerrar' }); return }
+    void cerrarIncidencia(r.id, causa)
+    setMostrarCerrar(false)
+    setAviso({ texto: 'Incidencia cerrada correctamente' })
   }
 
   /* ===== Captura + revisión + cierre (los que tengan valor) ===== */
@@ -67,7 +84,11 @@ export default function DetalleIncidencia({ id, onClose }: { id: string; onClose
 
   const hist = [
     { f: `${r.fecha} ${r.hora}`, t: `Registrado por ${r.reportado || '—'}` },
-    ...(r.fecha_revision ? [{ f: `${r.fecha_revision} ${r.hora_revision}`, t: `Revisado por ${r.usuario_revision || '—'}${r.turno_picking ? ` (${r.turno_picking})` : ''}` }] : []),
+    ...(r.fecha_revision ? [{ f: `${r.fecha_revision} ${r.hora_revision}`, t: `Revisado por ${r.usuario_revision || '—'}` }] : []),
+    ...(r.hist_mod ? String(r.hist_mod).split('\n').filter(Boolean).map(linea => ({
+      f: linea.slice(0, 19),
+      t: `Modificación · ${linea.slice(20)}`,
+    })) : []),
     ...(r.fecha_cierre ? [{ f: `${r.fecha_cierre} ${r.hora_cierre}`, t: `Cerrado por ${r.usuario_cierre || '—'}${r.causa_raiz ? ` · Causa: ${r.causa_raiz}` : ''}` }] : []),
   ]
 
@@ -123,14 +144,14 @@ export default function DetalleIncidencia({ id, onClose }: { id: string; onClose
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className={label}>Turno picking</label>
-                    <select className={input} value={form.turno_picking} onChange={set('turno_picking')}>
+                    <select className={input} value={form.turno_picking} onChange={set('turno_picking')} disabled={!editando}>
                       <option value="">Seleccionar</option>
                       <option>Turno 1</option><option>Turno 2</option><option>Turno 3</option>
                     </select>
                   </div>
                   <div>
                     <label className={label}>Usuario picking</label>
-                    <input className={input} placeholder="Código WMS" value={form.usuario_picking} onChange={set('usuario_picking')} />
+                    <input className={input} placeholder="Código WMS" value={form.usuario_picking} onChange={set('usuario_picking')} disabled={!editando}/>
                   </div>
                 </div>
                 <div>
@@ -140,24 +161,30 @@ export default function DetalleIncidencia({ id, onClose }: { id: string; onClose
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className={label}>Ubicación picking</label>
-                    <input className={input} value={form.ubicacion_picking} onChange={set('ubicacion_picking')} />
+                    <input className={input} value={form.ubicacion_picking} onChange={set('ubicacion_picking')} disabled={!editando}/>
                   </div>
                   <div>
                     <label className={label}>Fecha mod. WMS</label>
-                    <input className={input} placeholder="dd/MM/yyyy HH:mm:ss" value={form.fecha_modific_wms} onChange={set('fecha_modific_wms')} />
+                    <input className={input} placeholder="dd/MM/yyyy HH:mm:ss" value={form.fecha_modific_wms} onChange={set('fecha_modific_wms')} disabled={!editando}/>
                   </div>
                 </div>
                 <div>
                   <label className={label}>Ubicación hallazgo</label>
-                  <input className={input} value={form.ubicacion_hallazgo} onChange={set('ubicacion_hallazgo')} />
+                  <input className={input} value={form.ubicacion_hallazgo} onChange={set('ubicacion_hallazgo')} disabled={!editando}/>
                 </div>
                 <div>
                   <label className={label}>Observaciones revisión</label>
-                  <textarea className={`${input} h-20 py-2`} value={form.obs_revision} onChange={set('obs_revision')} />
+                  <textarea className={`${input} h-20 py-2`} value={form.obs_revision} onChange={set('obs_revision')} disabled={!editando} />
                 </div>
-                <button onClick={guardar} className="flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-ok text-sm font-bold text-white transition hover:brightness-110">
-                  <Save size={15} /> Guardar revisión
-                </button>
+                {editando ? (
+                  <button onClick={guardar} className="flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-ok text-sm font-bold text-white transition hover:brightness-110">
+                    <Save size={15} /> {yaRevisado ? 'Guardar cambios' : 'Guardar revisión'}
+                  </button>
+                ) : (
+                  <button onClick={() => setEditando(true)} className="flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-info/40 bg-info/10 text-sm font-bold text-info transition hover:bg-info/20">
+                    <ClipboardCheck size={15} /> Modificar revisión
+                  </button>
+                )}
               </div>
 
               {user?.esSupervisor && (
@@ -185,7 +212,7 @@ export default function DetalleIncidencia({ id, onClose }: { id: string; onClose
                 </div>
               )}
 
-              {msg && <p className="rounded-lg border border-line bg-surface2 px-3 py-2 text-xs font-semibold">{msg}</p>}
+
             </section>
           )}
 
@@ -203,6 +230,24 @@ export default function DetalleIncidencia({ id, onClose }: { id: string; onClose
               ))}
             </ul>
           </section>
+
+        {aviso && (
+            <div className="fixed inset-0 z-[60] grid place-items-center p-4">
+            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setAviso(null)} />
+            <div className="relative w-full max-w-sm rounded-xl border border-line bg-surface p-6 text-center shadow-card">
+                <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-ok/15 text-ok">
+                <CheckCircle2 size={24} />
+                </span>
+                <p className="mt-3 text-sm font-bold">{aviso.texto}</p>
+                <button
+                onClick={() => setAviso(null)}
+                className="mt-4 h-10 w-full rounded-lg bg-adecco text-sm font-bold text-white transition hover:bg-adecco-hover"
+                >
+                Aceptar
+                </button>
+          </div>
+        </div>
+      )}          
         </div>
       </div>
     </div>

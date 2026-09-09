@@ -2,11 +2,16 @@ import { useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Inbox, Bot, ClipboardCheck, Forklift, Layers,
-  Sun, Moon, LogOut, Bell, Settings, Menu, X, ChevronsLeft, ChevronsRight,
+  Sun, Moon, LogOut, Bell, Settings, Menu, X, ChevronsLeft, ChevronsRight, RefreshCw,
+  CalendarDays, Radio,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useTheme } from '../../context/ThemeContext'
 import { useAuth } from '../../context/AuthContext'
+import { useData } from '../../context/DataContext'
+import { useSettings } from '../../context/SettingsContext'
+import SettingsPanel from '../settings/SettingsPanel'
+
 
 export const NAV = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
@@ -28,17 +33,15 @@ function LogoAdecco({ className }: { className?: string }) {
 export default function AppShell() {
   const { theme, toggle } = useTheme()
   const { user, logout } = useAuth()
+  const { recargar, cargando, error, usarMockManual, fuente } = useData()
+  const hoyTop = new Date().toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' })
   const nav = useNavigate()
   const { pathname } = useLocation()
   const [sheet, setSheet] = useState<null | 'modulos' | 'ajustes'>(null)
-  const [collapsed, setCollapsed] = useState(() => localStorage.getItem('ims_sidebar') === '1')
-
-  const toggleSidebar = () => {
-    setCollapsed(c => {
-      localStorage.setItem('ims_sidebar', c ? '0' : '1')
-      return !c
-    })
-  }
+  const { prefs, actualizar } = useSettings()
+  const collapsed = prefs.sidebarColapsada
+  const toggleSidebar = () => actualizar({ sidebarColapsada: !collapsed })
+  const [ajustes, setAjustes] = useState(false)
 
   const titulo = NAV.find(n => (n.end ? pathname === n.to : pathname.startsWith(n.to)))?.label ?? 'Indicadores'
   const salir = () => { logout(); nav('/login') }
@@ -93,7 +96,8 @@ export default function AppShell() {
         {/* Pie: ajustes + tema + salir + footer (compacto) */}
         <div className={clsx('space-y-0.5 border-t border-line px-3 pb-2.5 pt-2.5', collapsed && 'px-2')}>
           <button
-            title="Ajustes (decorativo)"
+            onClick={() => setAjustes(true)}
+            title="Ajustes"
             className={clsx(
               'flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-semibold text-muted transition-colors hover:bg-surface2 hover:text-ink',
               collapsed && 'justify-center px-0',
@@ -152,9 +156,32 @@ export default function AppShell() {
         </div>
         <h1 className="hidden text-base font-extrabold sm:block lg:text-lg">{titulo}</h1>
         <div className="ml-auto flex items-center gap-1.5">
-          <button className="relative grid h-9 w-9 place-items-center rounded-lg border border-line text-muted transition-colors hover:bg-surface2 hover:text-ink">
-            <Bell size={17} />
-            <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-adecco" />
+          {/* Fecha actual visible en todos los módulos */}
+          <span className="hidden items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-wider text-muted md:flex">
+            <CalendarDays size={12} /> {hoyTop}
+          </span>
+          {/* Estado de la conexión visible en todos los módulos */}
+          <span className={clsx(
+            'hidden items-center gap-1.5 rounded-full border px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-wider md:flex',
+            fuente === 'apps-script' ? 'border-ok/30 bg-ok/10 text-ok' : 'border-warn/30 bg-warn/10 text-warn',
+          )}>
+            <Radio size={12} /> {fuente === 'apps-script' ? 'Apps Script' : 'Mock'}{cargando ? ' · sync…' : ''}
+          </span>
+          <button
+            onClick={() => void recargar()}
+            title="Actualizar datos"
+            className="flex h-9 items-center gap-2 rounded-lg border border-line px-2.5 text-muted transition-colors hover:bg-surface2 hover:text-ink"
+          >
+            <RefreshCw size={16} className={clsx(cargando && 'animate-spin')} />
+            <span className="hidden text-xs font-bold lg:inline">Actualizar</span>
+          </button>
+          <button
+            title="Avisos"
+            className="relative flex h-9 items-center gap-2 rounded-lg border border-line px-2.5 text-muted transition-colors hover:bg-surface2 hover:text-ink"
+          >
+            <Bell size={16} />
+            <span className="hidden text-xs font-bold lg:inline">Notificaciones</span>
+            <span className="absolute right-1.5 top-1.5 h-2 w-2 " />
           </button>
           <button onClick={() => setSheet('ajustes')}
             className="ml-1 grid h-9 w-9 place-items-center rounded-full bg-surface2 font-mono text-xs font-bold uppercase lg:hidden">
@@ -169,9 +196,29 @@ export default function AppShell() {
         </div>
       </header>
 
-      {/* ===== CONTENIDO ===== */}
+      {/* ===== CONTENIDO (se ajusta al colapso) + loader/error ===== */}
       <main className={clsx('px-4 pb-24 pt-5 transition-[padding] duration-300 lg:pb-8 lg:pr-8 lg:pt-7', pad)}>
-        <Outlet />
+        {cargando ? (
+          <div className="flex flex-col items-center justify-center gap-3 py-24 text-muted">
+            <RefreshCw size={28} className="animate-spin text-adecco" />
+            <p className="font-mono text-xs font-bold uppercase tracking-[0.08em]">Sincronizando con Apps Script…</p>
+          </div>
+        ) : error ? (
+          <div className="mx-auto max-w-md rounded-xl border border-red-500/30 bg-red-500/10 p-6 text-center">
+            <p className="text-sm font-bold text-red-600 dark:text-[#ff4d58]">No se pudo cargar datos de Apps Script</p>
+            <p className="mt-1 text-xs text-muted">{error}</p>
+            <div className="mt-4 flex justify-center gap-2">
+              <button onClick={() => void recargar()} className="h-9 rounded-lg bg-adecco px-4 text-xs font-bold text-white hover:bg-adecco-hover">
+                Reintentar
+              </button>
+              <button onClick={usarMockManual} className="h-9 rounded-lg border border-line px-4 text-xs font-bold text-muted hover:text-ink">
+                Ver datos locales
+              </button>
+            </div>
+          </div>
+        ) : (
+          <Outlet />
+        )}
       </main>
 
       {/* ===== BOTTOM NAV MÓVIL ===== */}
@@ -194,7 +241,9 @@ export default function AppShell() {
         </button>
       </nav>
 
-      {/* ===== SHEET MÓVIL ===== */}
+      {/* ===== PANEL DE AJUSTES ===== */}
+      <SettingsPanel abierto={ajustes} onClose={() => setAjustes(false)} />
+
       {sheet && (
         <div className="fixed inset-0 z-40 lg:hidden" onClick={() => setSheet(null)}>
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />

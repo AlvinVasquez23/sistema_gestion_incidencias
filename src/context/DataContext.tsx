@@ -16,6 +16,7 @@ interface DataCtx {
   recargar: () => Promise<void>
   guardarRevision: (id: string, p: RevisionPayload) => Promise<void>
   cerrarIncidencia: (id: string, causa: string) => Promise<void>
+  usarMockManual: () => void
 }
 const Ctx = createContext<DataCtx>(null!)
 
@@ -29,12 +30,13 @@ const ahora = () => {
 
 export function DataProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()
-  const [rows, setRows] = useState<Incidencia[]>(INCIDENCIAS)
+  const [rows, setRows] = useState<Incidencia[]>(() => (apiActiva() ? [] : INCIDENCIAS))
   const [fuente, setFuente] = useState<'mock' | 'apps-script'>('mock')
   const [cargando, setCargando] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const token = () => localStorage.getItem('ims_token') ?? ''
+  /* Token = usuario activo (así lo valida tu Code.gs: validarSesion busca por usuario) */
+  const token = () => localStorage.getItem('ims_token') ?? user?.usuario ?? ''
 
   /* Al entrar: intenta leer de Apps Script; si no hay URL o falla, usa mock */
   const recargar = useCallback(async () => {
@@ -47,9 +49,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setRows(data)
       setFuente('apps-script')
     } catch (e) {
+      console.error('[DataContext] API falló:', e)
       setError(e instanceof Error ? e.message : 'Error de conexión')
       setFuente('mock')
-      setRows(INCIDENCIAS)
+      setRows([])   // sin mock silencioso: la UI muestra loader/error
     } finally {
       setCargando(false)
     }
@@ -79,6 +82,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       await recargar()
       return
     }
+
+
+
     const t = ahora()
     setRows(rs => rs.map(r => r.id === id ? {
       ...r,
@@ -90,10 +96,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
     } : r))
   }
 
+  /* El usuario decide ver datos locales si la API falló */
+  const usarMockManual = () => { setRows(INCIDENCIAS); setFuente('mock'); setError(null) }
+
   return (
-    <Ctx.Provider value={{ rows, fuente, cargando, error, recargar, guardarRevision, cerrarIncidencia }}>
+    <Ctx.Provider value={{ rows, fuente, cargando, error, recargar, guardarRevision, cerrarIncidencia, usarMockManual }}>
       {children}
     </Ctx.Provider>
   )
-}
+}  
+
+
 export const useData = () => useContext(Ctx)

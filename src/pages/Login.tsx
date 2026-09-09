@@ -3,6 +3,7 @@ import { Navigate, useNavigate } from 'react-router-dom'
 import { Sun, Moon, Lock, User, Warehouse, ScanBarcode, ClipboardCheck, Forklift } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
+import { useSettings } from '../context/SettingsContext'
 
 export default function Login() {
   const { user, login } = useAuth()
@@ -12,13 +13,16 @@ export default function Login() {
   const [p, setP] = useState('')
   const [err, setErr] = useState('')
   const [olvido, setOlvido] = useState(false)
+  const { prefs } = useSettings()
+
 
   if (user) return <Navigate to="/" replace />
 
-  const submit = (e: FormEvent) => {
+  const submit = async (e: FormEvent) => {
     e.preventDefault()
     setErr('')
-    if (login(u, p)) nav('/')
+    const ok = await login(u, p)
+    if (ok) nav(prefs.moduloInicio)
     else setErr('Usuario o contraseña incorrectos')
   }
 

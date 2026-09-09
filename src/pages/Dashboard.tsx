@@ -1,6 +1,5 @@
-import { useMemo } from 'react'
-import { CalendarDays, Radio, Clock3, PackageOpen, ClipboardCheck, CheckCircle2, Flame, BellRing } from 'lucide-react'
-
+import { useMemo, useState } from 'react'
+import { CalendarDays, Clock3, PackageOpen, ClipboardCheck, CheckCircle2, Flame, BellRing } from 'lucide-react'
 import clsx from 'clsx'
 import { useData } from '../context/DataContext'
 import { fmtMoney, TIPOS_MAT } from '../data/mock'
@@ -17,7 +16,7 @@ const tsDe = (f: string, h: string) => {
 const card = 'rounded-xl border border-line bg-surface p-4 shadow-card'
 const tit = 'text-xs font-bold uppercase tracking-wider text-muted'
 const C = { pend: '#E30613', rev: '#F59E0B', cerr: '#059669' }
-const AREAS_MAT = ['Decanting', 'Reabasto', 'Apilador', 'Aframe']
+const AREAS_MAT = ['Decanting', 'Reabasto']
 
 function LabelRow({ values }: { values: number[] }) {
   return (
@@ -28,18 +27,23 @@ function LabelRow({ values }: { values: number[] }) {
 }
 
 export default function Dashboard() {
-  const { rows, fuente, cargando } = useData()
+  const { rows } = useData()
+  const [rangoMat, setRangoMat] = useState<'7d' | '30d' | 'todo'>('todo')
 
   const m = useMemo(() => {
     const amrAud = rows.filter(r => r.modulo === 'AMR' || r.modulo === 'AUD')
     const abiertas = amrAud.filter(r => r.status !== 'Cerrado')
-    const dias = [...new Set(amrAud.map(r => toISO(r.fecha)))].sort()
-    const hoyIso = dias[dias.length - 1] ?? ''
-    const ayerIso = dias[dias.length - 2] ?? ''
+    const pad2 = (n: number) => String(n).padStart(2, '0')
+    const isoDe = (d: Date) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
+    const ahora = new Date()
+    const hoyRealIso = isoDe(ahora)
+    const ayerRealIso = isoDe(new Date(ahora.getTime() - 86400000))
+    const hoyReal = ahora.toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' })
     const countDay = (iso: string) => amrAud.filter(r => toISO(r.fecha) === iso).length
     const pct = (a: number, b: number) => (b === 0 ? null : Math.round(((a - b) / b) * 100))
 
-    const ult7 = dias.slice(-7)
+    /* Últimos 7 días naturales contados desde la fecha actual */
+    const ult7 = Array.from({ length: 7 }, (_, i) => isoDe(new Date(ahora.getTime() - (6 - i) * 86400000)))
     const serie = ult7.map(countDay)
 
     const porArea = ['Decanting', 'Reabasto'].map(a => {
@@ -52,8 +56,14 @@ export default function Dashboard() {
       }
     }).filter(x => x.total > 0)
 
+    /* Solo AMR + Auditorías, recortado por rango de fecha */
+    const corteMat = rangoMat === 'todo' ? amrAud : amrAud.filter(r => {
+      const [d, mo, y] = String(r.fecha).split('/')
+      const ts = new Date(+y, +mo - 1, +d).getTime()
+      return ts >= ahora.getTime() - (rangoMat === '7d' ? 7 : 30) * 86400000
+    })
     const matTipo = TIPOS_MAT.map(t => {
-      const celdas = AREAS_MAT.map(a => rows.filter(r => r.tipo === t && r.area === a).length)
+      const celdas = AREAS_MAT.map(a => corteMat.filter(r => r.tipo === t && r.area === a).length)
       return { tipo: t, celdas, total: celdas.reduce((x, y) => x + y, 0) }
     })
 
@@ -61,7 +71,7 @@ export default function Dashboard() {
       amrAud.reduce<Record<string, { n: number; q: number; d: string }>>((acc, r) => {
         if (!r.codigo) return acc
         const e = acc[r.codigo] ?? { n: 0, q: 0, d: r.descripcion }
-        e.n += 1; e.q += r.cantidad
+        e.n += 1; e.q += parseFloat(String(r.cantidad).replace(',', '.')) || 0
         acc[r.codigo] = e
         return acc
       }, {}),
@@ -96,20 +106,25 @@ export default function Dashboard() {
       nRev: abiertas.filter(r => r.status === 'Revisado').length,
       nCrit: abiertas.filter(r => r.sla === 'Crítico').length,
       nAlert: abiertas.filter(r => r.sla === 'Alerta').length,
-      regHoy: countDay(hoyIso),
-      deltaReg: pct(countDay(hoyIso), countDay(ayerIso)),
+      regHoy: countDay(hoyRealIso),
+      deltaReg: pct(countDay(hoyRealIso), countDay(ayerRealIso)),
       valorizado: abiertas.reduce((s, r) => s + r.valorizado, 0),
-      unidades: abiertas.reduce((s, r) => s + r.cantidad, 0),
+      unidades: abiertas.reduce((s, r) => s + (parseFloat(String(r.cantidad).replace(',', '.')) || 0), 0),
       skus: new Set(abiertas.map(r => r.codigo).filter(Boolean)).size,
       ult7, serie, porArea, matTipo, topSkus, ranking,
+      totArea: {
+        pend: porArea.reduce((s, a) => s + a.pend, 0),
+        rev: porArea.reduce((s, a) => s + a.rev, 0),
+        cerr: porArea.reduce((s, a) => s + a.cerr, 0),
+      },
       mttr, pctSLA, edad,
-      hoyFull: hoyIso ? `${ddmm(hoyIso)}/${hoyIso.slice(0, 4)}` : '',
+      hoyReal,
       pool: {
         pend: amrAud.filter(r => r.status === 'Pendiente').length,
         rev: amrAud.filter(r => r.status === 'Revisado').length,
       },
     }
-  }, [rows])
+}, [rows, rangoMat])
 
   const maxSku = m.topSkus[0]?.n ?? 1
   const maxRank = m.ranking[0]?.v ?? 1
@@ -121,17 +136,6 @@ export default function Dashboard() {
         <div>
           <h2 className="text-xl font-extrabold tracking-tight">Indicadores de Gestión</h2>
           <p className="text-xs text-muted">Sistema de Gestión de Incidencias · CD Punta Negra</p>
-        </div>
-        <div className="ml-auto flex flex-wrap items-center gap-2">
-          <span className="flex items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-wider text-muted">
-            <CalendarDays size={12} /> Actualizado al {m.hoyFull}
-          </span>
-                    <span className={clsx(
-            'flex items-center gap-1.5 rounded-full border px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-wider',
-            fuente === 'apps-script' ? 'border-ok/30 bg-ok/10 text-ok' : 'border-warn/30 bg-warn/10 text-warn',
-          )}>
-            <Radio size={12} /> {fuente === 'apps-script' ? 'Datos: Apps Script' : 'Datos: Mock'}{cargando ? ' · sync…' : ''}
-          </span>
         </div>
       </div>
 
@@ -233,7 +237,7 @@ export default function Dashboard() {
       <div className="grid gap-4 lg:grid-cols-3">
         <div className={card}>
           <h3 className={tit}>Incidencias por área y estado</h3>
-          <p className="mt-0.5 text-[11px] text-muted">Decanting y Reabasto</p>
+          <p className="mt-0.5 text-[11px] text-muted">Decanting / Reabasto</p>
           <div className="mt-4 space-y-3">
             {m.porArea.map(a => (
               <div key={a.area}>
@@ -245,6 +249,11 @@ export default function Dashboard() {
                   <div className="bg-[#E30613]" style={{ width: `${(a.pend / a.total) * 100}%` }} title={`Pendiente: ${a.pend}`} />
                   <div className="bg-[#F59E0B]" style={{ width: `${(a.rev / a.total) * 100}%` }} title={`Revisado: ${a.rev}`} />
                   <div className="bg-[#059669]" style={{ width: `${(a.cerr / a.total) * 100}%` }} title={`Cerrado: ${a.cerr}`} />
+                </div>
+                <div className="mt-1 flex gap-3 font-mono text-[10px] font-bold tabular-nums text-muted">
+                  <span className="flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-[#E30613]" />{a.pend}</span>
+                  <span className="flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-[#F59E0B]" />{a.rev}</span>
+                  <span className="flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-[#059669]" />{a.cerr}</span>
                 </div>
               </div>
             ))}
@@ -268,7 +277,7 @@ export default function Dashboard() {
                     {s.n} inc
                   </span>
                 </div>
-                <p className="font-mono text-[10px] text-muted">{s.codigo} · {s.q} und</p>
+                <p className="font-mono text-[10px] text-muted">{s.codigo} · {Math.round(s.q)} und</p>
                 <div className="mt-1 h-1.5 rounded-full bg-surface2">
                   <div className="h-1.5 rounded-full bg-adecco" style={{ width: `${(s.n / maxSku) * 100}%` }} />
                 </div>
@@ -324,14 +333,32 @@ export default function Dashboard() {
         </div>
 
         <div className={card}>
-          <h3 className={tit}>Incidencias por tipo y área</h3>
-          <p className="mt-0.5 text-[11px] text-muted">Total de incidencias registradas</p>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h3 className={tit}>Incidencias por tipo y área</h3>
+              <p className="mt-0.5 text-[11px] text-muted">Cantidad Historica de Incidencias</p>
+            </div>
+            <div className="flex rounded-lg border border-line bg-surface2 p-0.5">
+              {([['7d', '7 días'], ['30d', '30 días'], ['todo', 'Total']] as const).map(([k, l]) => (
+                <button
+                  key={k}
+                  onClick={() => setRangoMat(k)}
+                  className={clsx(
+                    'rounded-md px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider transition-colors',
+                    rangoMat === k ? 'bg-adecco text-white' : 'text-muted hover:text-ink',
+                  )}
+                >
+                  {l}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="mt-4 overflow-x-auto">
             <table className="w-full min-w-[340px] border-collapse text-xs">
               <thead>
                 <tr className="border-b border-line text-left">
                   <th className="py-2 pr-2 text-[10px] font-bold uppercase tracking-[0.08em] text-muted">Tipo</th>
-                  {['Decant', 'Reabasto', 'Apilad', 'Aframe'].map(h => (
+                  {['Decant', 'Reabasto'].map(h => (
                     <th key={h} className="px-2 py-2 text-center text-[10px] font-bold uppercase tracking-[0.08em] text-muted">{h}</th>
                   ))}
                   <th className="py-2 pl-2 text-center text-[10px] font-bold uppercase tracking-[0.08em] text-muted">Total</th>
