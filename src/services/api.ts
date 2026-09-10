@@ -32,6 +32,13 @@ export const api = {
   nombreWms: (token: string, codigo: string) => llamar<string>('nombre_wms', { token, codigo }),
   cambiarPassword: (token: string, actual: string, nueva: string) =>
     llamar<unknown>('cambiar_password', { token, actual, nueva }),
+  registrar: (token: string, modulo: string, datos: Record<string, unknown>) =>
+    llamar<{ id: string }>('registrar', { token, modulo, datos }),
+  corregir: (token: string, modulo: string, id: string, datos: Record<string, unknown>) =>
+    llamar<unknown>('corregir', { token, modulo, id, datos }),
+  buscarSku: (token: string, codigo: string) =>
+    llamar<{ d: string; p: number | null } | null>('buscar_sku', { token, codigo }),
+  
 }
 
 /* Login en crudo: devuelve el JSON tal cual para distinguir

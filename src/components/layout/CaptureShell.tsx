@@ -10,6 +10,10 @@ import { useData } from '../../context/DataContext'
 import { LogoAdecco } from '../ui/LogoAdecco'
 import DetalleIncidencia from '../detalle/DetalleIncidencia'
 
+
+const RUTA_MODULO: Record<string, string> = { AMR: 'amr', AUD: 'aud', API: 'api', AFR: 'afr' }
+
+
 /* Pill de status local (independiente del Badge del design system) */
 function Pill({ status }: { status: string }) {
   const s = status || 'Pendiente'
@@ -101,6 +105,7 @@ export function CapturaHome() {
 }
 
 export function MisCapturas() {
+  const nav = useNavigate()
   const { user } = useAuth()
   const { rows } = useData()
   const [detalle, setDetalle] = useState<string | null>(null)
@@ -118,14 +123,24 @@ export function MisCapturas() {
       <ul className="space-y-2">
         {mias.map(r => (
           <li key={r.id}>
-            <button onClick={() => setDetalle(r.id)} className="w-full rounded-xl border border-line bg-surface p-3 text-left shadow-card">
-              <div className="flex items-center justify-between gap-2">
-                <span className="font-mono text-[11px] font-bold">{r.id}</span>
-                <Pill status={r.status || 'Pendiente'} />
-              </div>
-              <p className="mt-1 truncate text-xs font-semibold">{r.descripcion || r.codigo || r.cubeta || r.tipo}</p>
-              <p className="mt-0.5 font-mono text-[10px] text-muted">{r.fecha} {r.hora} · {r.area} · {r.tipo}</p>
-            </button>
+            <div className="rounded-xl border border-line bg-surface p-3 shadow-card">
+              <button onClick={() => setDetalle(r.id)} className="w-full text-left">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-mono text-[11px] font-bold">{r.id}</span>
+                  <Pill status={r.status || 'Pendiente'} />
+                </div>
+                <p className="mt-1 truncate text-xs font-semibold">{r.descripcion || r.codigo || r.cubeta || r.tipo}</p>
+                <p className="mt-0.5 font-mono text-[10px] text-muted">{r.fecha} {r.hora} · {r.area} · {r.tipo}</p>
+              </button>
+              {r.status === 'Pendiente' && (r.reportado || '') === (user?.nombre ?? '') && (
+                <button
+                  onClick={() => nav(`/captura/${RUTA_MODULO[r.modulo] ?? 'amr'}?edit=${r.id}`)}
+                  className="mt-2 h-8 w-full rounded-lg border border-warn/40 bg-warn/10 text-[11px] font-bold uppercase tracking-wider text-warn transition hover:bg-warn/20"
+                >
+                  Corregir captura
+                </button>
+              )}
+            </div>
           </li>
         ))}
       </ul>
@@ -174,17 +189,4 @@ export function ConsultaIncidencias() {
   )
 }
 
-export function CapturaForm({ modulo }: { modulo: string }) {
-  const nav = useNavigate()
-  return (
-    <div className="space-y-3">
-      <button onClick={() => nav(-1)} className="flex items-center gap-1 text-xs font-bold text-muted hover:text-ink">
-        <ChevronLeft size={14} /> Volver
-      </button>
-      <div className="rounded-xl border border-line bg-surface p-6 text-center shadow-card">
-        <p className="text-sm font-bold">Formulario de captura {modulo}</p>
-        <p className="mt-1 text-xs text-muted">Disponible en el Paso 4.2 (escaneo con cámara + escritura en Google Sheets).</p>
-      </div>
-    </div>
-  )
-}
+export { default as CapturaForm } from '../captura/CapturaForm'
