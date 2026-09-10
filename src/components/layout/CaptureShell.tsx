@@ -10,7 +10,7 @@ import { useData } from '../../context/DataContext'
 import { LogoAdecco } from '../ui/LogoAdecco'
 import DetalleIncidencia from '../detalle/DetalleIncidencia'
 import { useTheme } from '../../context/ThemeContext'
-
+import InstalarApp from '../pwa/InstalarApp'
 
 const RUTA_MODULO: Record<string, string> = { AMR: 'amr', AUD: 'aud', API: 'api', AFR: 'afr' }
 
@@ -43,6 +43,7 @@ export default function CaptureShell() {
           <p className="truncate text-sm font-extrabold leading-tight">Registro de incidencias</p>
           <p className="truncate text-[10px] font-semibold uppercase tracking-wider text-muted">{user?.nombre}</p>
         </div>
+        <InstalarApp />
         <button
           onClick={toggle}
           title="Cambiar tema"
