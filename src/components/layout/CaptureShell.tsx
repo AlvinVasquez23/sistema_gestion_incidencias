@@ -145,15 +145,16 @@ export function MisCapturas() {
   const { user } = useAuth()
   const { rows } = useData()
   const [detalle, setDetalle] = useState<string | null>(null)
-  const mias = useMemo(() => rows
-    .filter(r => (r.reportado || '') === (user?.nombre ?? ''))
-    .slice(0, 30), [rows, user])
+  const esMia = (r: { usuario_registro?: string; reportado?: string }) =>
+    (r.usuario_registro || '') === (user?.usuario ?? '') ||
+    (!r.usuario_registro && (r.reportado || '') === (user?.nombre ?? ''))
+  const mias = useMemo(() => rows.filter(esMia).slice(0, 30), [rows, user])
   return (
     <div className="space-y-3">
       <h2 className="text-lg font-extrabold tracking-tight">Mis capturas recientes</h2>
       {mias.length === 0 && (
-        <p className="rounded-xl border border-line bg-surface p-4 text-sm text-muted">
-          Aún no tienes incidencias registras.
+        <p className="rounded-xl border border-line bg-urface p-4 text-sm text-muted">
+          Aún no tienes incidencias registradas.
         </p>
       )}
       <ul className="space-y-2">
@@ -168,7 +169,7 @@ export function MisCapturas() {
                 <p className="mt-1 truncate text-xs font-semibold">{r.descripcion || r.codigo || r.cubeta || r.tipo}</p>
                 <p className="mt-0.5 font-mono text-[10px] text-muted">{r.fecha} {r.hora} · {r.area} · {r.tipo}</p>
               </button>
-              {r.status === 'Pendiente' && (r.reportado || '') === (user?.nombre ?? '') && (
+              {r.status === 'Pendiente' && esMia(r) && (
                 <button
                   onClick={() => nav(`/captura/${RUTA_MODULO[r.modulo] ?? 'amr'}?edit=${r.id}`)}
                   className="mt-2 h-8 w-full rounded-lg border border-warn/40 bg-warn/10 text-[11px] font-bold uppercase tracking-wider text-warn transition hover:bg-warn/20"

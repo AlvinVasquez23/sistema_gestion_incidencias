@@ -65,6 +65,12 @@ const VACIO = {
   codigo: '', lote: '', cantidad: '', observacion: '',
 }
 
+/* GS1/QR: inicia con AI (02)/02 o trae separadores FNC1 o paréntesis de AI */
+function esGS1(txt: string) {
+  const t = txt.replace(/\x1D/g, '')
+  return t.startsWith('(02)') || t.startsWith('02') || t.includes('\x1D') || /\(\d{2}\)/.test(t)
+}
+
 /* ===== Parseo de QR GS1: (02)SKU (10)LOTE (37)CANT ===== */
 function parsearQR(txt: string) {
   const t = txt.replace(/\x1D/g, '')
@@ -393,21 +399,20 @@ export default function CapturaForm({ modulo }: { modulo: string }) {
             if (scan === 'id') {
               const v = cfg.campoId === 'cubeta' ? parsearCubeta(txt) : txt
               setF(p => ({ ...p, [cfg.campoId]: v }))
-            } else {
+            } else if (esGS1(txt)) {
+              /* QR GS1: SKU + lote + cantidad autocompletados (cantidad editable) */
               const qr = parsearQR(txt)
-              if (qr.sku) {
-                /* QR GS1: SKU + lote + cantidad autocompletados (cantidad editable) */
-                setF(p => ({
-                  ...p,
-                  codigo: qr.sku,
-                  lote: qr.lote || p.lote,
-                  cantidad: qr.cant || p.cantidad,
-                }))
-                void buscarSku(qr.sku)
-              } else {
-                setF(p => ({ ...p, codigo: txt }))
-                void buscarSku(txt)
-              }
+              setF(p => ({
+                ...p,
+                codigo: qr.sku || txt,
+                lote: qr.lote || p.lote,
+                cantidad: qr.cant || p.cantidad,
+              }))
+              void buscarSku(qr.sku || txt)
+            } else {
+              /* Código de barras: TODO el dato se compara con la hoja productos */
+              setF(p => ({ ...p, codigo: txt }))
+              void buscarSku(txt)
             }
             setScan(null)
           }}
