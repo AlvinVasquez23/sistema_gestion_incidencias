@@ -225,6 +225,12 @@ export default function CapturaForm({ modulo }: { modulo: string }) {
           <button onClick={() => nav('/captura/mis')} className="h-11 rounded-lg border border-line text-sm font-bold text-muted">
             Mis capturas
           </button>
+          <button
+            onClick={() => nav('/captura')}
+            className="col-span-2 h-11 rounded-lg border border-line bg-surface2 text-sm font-bold text-ink transition hover:opacity-80"
+          >
+            Terminar y volver al inicio
+          </button>
         </div>
       </div>
     )
@@ -319,9 +325,6 @@ export default function CapturaForm({ modulo }: { modulo: string }) {
               <ScanBarcode size={20} />
             </button>
           </div>
-          {cfg.campoId === 'cubeta' && f.cubeta && (
-            <p className="mt-1 font-mono text-[11px] font-bold text-muted">Cubeta a guardar: {f.cubeta}</p>
-          )}
         </div>
 
         {/* SKU / Artículo */}
