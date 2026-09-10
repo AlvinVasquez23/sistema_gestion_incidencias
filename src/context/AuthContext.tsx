@@ -8,7 +8,7 @@ export interface SessionUser {
 
 interface AuthCtx {
   user: SessionUser | null
-  login: (u: string, p: string) => Promise<boolean>
+  login: (u: string, p: string) => Promise<SessionUser | null>
   logout: () => void
 }
 const Ctx = createContext<AuthCtx>(null!)
@@ -25,17 +25,17 @@ function cargarSesion(): SessionUser | null {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<SessionUser | null>(cargarSesion)
 
-  const login = async (u: string, p: string): Promise<boolean> => {
+  const login = async (u: string, p: string): Promise<SessionUser | null> => {
     /* Con API activa: valida contra la hoja usuarios de Google Sheets */
     if (apiActiva()) {
       let r: Awaited<ReturnType<typeof loginApi>> | null = null
       try {
         r = await loginApi(u, p)
       } catch {
-        r = null   // red caída: se permite fallback a mock
+        r = null   // red caída: fallback a mock
       }
       if (r) {
-        if (!r.ok) return false   // credenciales incorrectas: SIN fallback por seguridad
+        if (!r.ok) return null
         const ses: SessionUser = {
           usuario: r.usuario ?? u,
           nombre: r.nombre ?? u,
@@ -45,19 +45,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.setItem('ims_token', r.token ?? ses.usuario)
         localStorage.setItem('ims_session', JSON.stringify(ses))
         setUser(ses)
-        return true
+        return ses
       }
     }
     /* Sin API o red caída: usuarios mock locales */
     const found = USUARIOS.find(x => x.usuario === u.trim().toLowerCase() && x.password === p)
-    if (!found) return false
+    if (!found) return null
     const ses: SessionUser = {
       usuario: found.usuario, nombre: found.nombre, rol: found.rol, esSupervisor: found.esSupervisor,
     }
     localStorage.setItem('ims_token', ses.usuario)
     localStorage.setItem('ims_session', JSON.stringify(ses))
     setUser(ses)
-    return true
+    return ses
   }
 
   const logout = () => {

@@ -30,7 +30,7 @@ export default function DetalleIncidencia({ id, onClose }: { id: string; onClose
 
   if (!r) return null
 
-  const editable = (r.modulo === 'AMR' || r.modulo === 'AUD') && r.status !== 'Cerrado'
+  const editable = !!user?.esSupervisor && (r.modulo === 'AMR' || r.modulo === 'AUD') && r.status !== 'Cerrado'
   const yaRevisado = r.status === 'Revisado'
   const [nombreWms, setNombreWms] = useState('')
   useEffect(() => {

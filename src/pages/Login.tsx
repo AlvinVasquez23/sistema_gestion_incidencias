@@ -21,13 +21,13 @@ export default function Login() {
   const submit = async (e: FormEvent) => {
     e.preventDefault()
     setErr('')
-    const ok = await login(u, p)
-    if (ok) nav(prefs.moduloInicio)
+    const ses = await login(u, p)
+    if (ses) nav(ses.esSupervisor ? prefs.moduloInicio : '/captura')
     else setErr('Usuario o contraseña incorrectos')
   }
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
+    <div className="flex min-h-dvh flex-col">
       {/* Toggle de tema flotante */}
       <button
         onClick={toggle}
@@ -37,9 +37,10 @@ export default function Login() {
         {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
       </button>
 
-      <main className="flex flex-1 items-center justify-center px-4">
+
+      <main className="flex flex-1 items-center justify-center px-4 py-6">       
         {/* Tarjeta principal: viewport completo sin scroll */}
-        <div className="grid w-[min(1200px,96vw)] overflow-hidden rounded-2xl border border-line bg-surface shadow-card lg:grid-cols-[1.1fr_1fr]" style={{ maxHeight: '92vh' }}>
+        <div className="grid w-[min(1200px,96vw)] overflow-hidden rounded-2xl border border-line bg-surface shadow-card lg:max-h-[92vh] lg:grid-cols-[1.1fr_1fr]">
 
           {/* ===== Panel de marca (rojo Adecco) ===== */}
           <div className="relative flex flex-col items-center justify-center overflow-hidden bg-gradient-to-br from-adecco via-[#b8050f] to-[#7a030a] p-8 text-white sm:p-10">
