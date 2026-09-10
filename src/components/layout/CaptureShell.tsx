@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import {
-  Home, ClipboardList, Search, LogOut, ChevronLeft,
+  Home, ClipboardList, Search, LogOut,
   PackageOpen, ClipboardCheck, Forklift, Layers,
 } from 'lucide-react'
 import clsx from 'clsx'
