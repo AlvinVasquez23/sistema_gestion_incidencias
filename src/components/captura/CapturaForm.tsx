@@ -153,14 +153,20 @@ export default function CapturaForm({ modulo }: { modulo: string }) {
   const valorizado = precio != null ? Math.round(precio * cant * 100) / 100 : null
   const sugeridos = useMemo(() => {
     const t = f.auxiliar.trim().toLowerCase()
-    if (!t) return auxiliares.slice(0, 6)
-    return auxiliares.filter(n => n.toLowerCase().includes(t)).slice(0, 6)
+    if (!t) return auxiliares.slice(0, 10)
+    return auxiliares.filter(n => n.toLowerCase().includes(t)).slice(0, 10)
   }, [f.auxiliar, auxiliares])
 
   const enviar = async () => {
     setMsg(null)
     if (!f.tipo) { setMsg({ tipo: 'error', texto: 'Selecciona el tipo de incidencia' }); return }
-    if (cfg.usaAuxiliar && !esSoloLpn && !f.auxiliar.trim()) { setMsg({ tipo: 'error', texto: 'Selecciona el auxiliar que reporta' }); return }
+    let auxiliarFinal = ''
+    if (cfg.usaAuxiliar && !esSoloLpn) {
+      if (auxiliares.length === 0) { setMsg({ tipo: 'error', texto: 'No se pudo cargar el personal del área; verifica tu conexión' }); return }
+      const match = auxiliares.find(n => n.trim().toLowerCase() === f.auxiliar.trim().toLowerCase())
+      if (!match) { setMsg({ tipo: 'error', texto: 'Selecciona un auxiliar válido' }); return }
+      auxiliarFinal = match
+    }
     if (cfg.usaEstacion && !esSoloLpn && !f.estacion) { setMsg({ tipo: 'error', texto: 'Selecciona la estación' }); return }
     if (!f[cfg.campoId].trim()) { setMsg({ tipo: 'error', texto: `Escanea o escribe el ${cfg.labelId}` }); return }
     if (!esSoloLpn) {
@@ -170,7 +176,7 @@ export default function CapturaForm({ modulo }: { modulo: string }) {
     }
     setGuardando(true)
     const datos = {
-      area: cfg.area, tipo: f.tipo, reportado: f.auxiliar, estacion: f.estacion,
+      area: cfg.area, tipo: f.tipo, reportado: auxiliarFinal || f.auxiliar, estacion: f.estacion,
       lpn: f.lpn, cubeta: f.cubeta, codigo: f.codigo, lote: f.lote,
       cantidad: esSoloLpn ? 0 : cant, um: 'Unidad', observacion: f.observacion,
     }

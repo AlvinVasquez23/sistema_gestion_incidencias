@@ -11,6 +11,7 @@ import AppShell from './components/layout/AppShell'
 import CaptureShell, {
   CapturaHome, MisCapturas, ConsultaIncidencias, CapturaForm,
 } from './components/layout/CaptureShell'
+import AutoLogout from './components/seguridad/AutoLogout'
 
 /* Solo supervisores ven la app completa; un auxiliar que intente entrar va a /captura */
 function SoloSupervisor({ children }: { children: ReactElement }) {
@@ -35,32 +36,33 @@ export default function App() {
         <SettingsProvider>
           <DataProvider>
             <BrowserRouter>
-              <Routes>
-                <Route path="/login" element={<Login />} />
+               <AutoLogout />
+                <Routes>
+                  <Route path="/login" element={<Login />} />
 
-                {/* ===== Zona supervisores (layout AppShell completo) ===== */}
-                <Route element={<SoloSupervisor><AppShell /></SoloSupervisor>}>
-                  <Route path="/" element={<Dashboard />} />
-                  <Route path="/pool" element={<ModuloPage key="pool" vista="pool" />} />
-                  <Route path="/amr" element={<ModuloPage key="amr" vista="amr" />} />
-                  <Route path="/aud" element={<ModuloPage key="aud" vista="aud" />} />
-                  <Route path="/api" element={<ModuloPage key="api" vista="api" />} />
-                  <Route path="/afr" element={<ModuloPage key="afr" vista="afr" />} />
-                </Route>
+                  {/* ===== Zona supervisores (layout AppShell completo) ===== */}
+                  <Route element={<SoloSupervisor><AppShell /></SoloSupervisor>}>
+                    <Route path="/" element={<Dashboard />} />
+                    <Route path="/pool" element={<ModuloPage key="pool" vista="pool" />} />
+                    <Route path="/amr" element={<ModuloPage key="amr" vista="amr" />} />
+                    <Route path="/aud" element={<ModuloPage key="aud" vista="aud" />} />
+                    <Route path="/api" element={<ModuloPage key="api" vista="api" />} />
+                    <Route path="/afr" element={<ModuloPage key="afr" vista="afr" />} />
+                  </Route>
 
-                {/* ===== Zona auxiliares (shell de captura) ===== */}
-                <Route path="/captura" element={<RutaCaptura><CaptureShell /></RutaCaptura>}>
-                  <Route index element={<CapturaHome />} />
-                  <Route path="mis" element={<MisCapturas />} />
-                  <Route path="consulta" element={<ConsultaIncidencias />} />
-                  <Route path="amr" element={<CapturaForm modulo="AMR" />} />
-                  <Route path="aud" element={<CapturaForm modulo="AUD" />} />
-                  <Route path="api" element={<CapturaForm modulo="API" />} />
-                  <Route path="afr" element={<CapturaForm modulo="AFR" />} />
-                </Route>
+                  {/* ===== Zona auxiliares (shell de captura) ===== */}
+                  <Route path="/captura" element={<RutaCaptura><CaptureShell /></RutaCaptura>}>
+                    <Route index element={<CapturaHome />} />
+                    <Route path="mis" element={<MisCapturas />} />
+                    <Route path="consulta" element={<ConsultaIncidencias />} />
+                    <Route path="amr" element={<CapturaForm modulo="AMR" />} />
+                    <Route path="aud" element={<CapturaForm modulo="AUD" />} />
+                    <Route path="api" element={<CapturaForm modulo="API" />} />
+                    <Route path="afr" element={<CapturaForm modulo="AFR" />} />
+                  </Route>
 
-                <Route path="*" element={<Navigate to="/" replace />} />
-              </Routes>
+                  <Route path="*" element={<Navigate to="/" replace />} />
+                </Routes>
             </BrowserRouter>
           </DataProvider>
         </SettingsProvider>
