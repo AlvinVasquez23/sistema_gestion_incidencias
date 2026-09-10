@@ -1,59 +1,89 @@
-import { useEffect, useState, type ChangeEvent } from 'react'
+import { useEffect, useMemo, useState, type ChangeEvent } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { ChevronLeft, ScanBarcode, Save } from 'lucide-react'
+import { ChevronLeft, ScanBarcode, Save, Info } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../../context/AuthContext'
 import { useData } from '../../context/DataContext'
 import { api, apiActiva } from '../../services/api'
 import { fmtMoney } from '../../data/mock'
 import Escaner from './Escaner'
+import { IconoModulo } from './IconosModulo'
 
 const input = 'h-11 w-full rounded-lg border border-line bg-surface2 px-3 text-sm outline-none transition focus:border-adecco focus:ring-2 focus:ring-adecco/20'
 const label = 'mb-1 block text-[11px] font-bold uppercase tracking-wider text-muted'
 
+const ESTACIONES = Array.from({ length: 22 }, (_, i) => `D${String(i + 1).padStart(2, '0')}`)
+const MODULOS_POR_ROL: Record<string, string[]> = {
+  decanting: ['AMR', 'API'], reabasto: ['AUD'], inventarios: ['API'], aframe: ['AFR'],
+}
+
 interface Cfg {
+  key: 'amr' | 'aud' | 'api' | 'afr'
   titulo: string
-  areas: string[]
-  tiposPorArea: Record<string, string[]>
+  area: string
+  tipos: string[]
   campoId: 'lpn' | 'cubeta'
   labelId: string
   usaEstacion: boolean
+  usaAuxiliar: boolean
   usaCodigo: boolean
+  tipoSoloLpn?: string
+  tiposCierreAuto: string[]
+  codigoOpcionalTipo?: string
+  conDescripcion: boolean
 }
 
 const CFG: Record<string, Cfg> = {
   AMR: {
-    titulo: 'Incidencia AMR',
-    areas: ['Decanting', 'Reabasto'],
-    tiposPorArea: {
-      Decanting: ['Faltante', 'Sobrante', 'Cruce SKU', 'Faltante de origen', 'Merma'],
-      Reabasto: ['Faltante', 'Sobrante', 'Cruce SKU', 'Merma', 'Conforme'],
-    },
-    campoId: 'lpn', labelId: 'LPN', usaEstacion: true, usaCodigo: true,
+    key: 'amr', titulo: 'Incidencias AMR', area: 'Decanting',
+    tipos: ['Faltante', 'Sobrante', 'Cruce SKU', 'Faltante de origen', 'Merma'],
+    campoId: 'lpn', labelId: 'LPN', usaEstacion: true, usaAuxiliar: true, usaCodigo: true,
+    tiposCierreAuto: ['Faltante de origen'], conDescripcion: true,
   },
   AUD: {
-    titulo: 'Auditoría Reaba',
-    areas: ['Reabasto'],
-    tiposPorArea: { Reabasto: ['Faltante', 'Sobrante', 'Cruce SKU', 'Merma', 'Conforme'] },
-    campoId: 'lpn', labelId: 'LPN', usaEstacion: false, usaCodigo: true,
+    key: 'aud', titulo: 'Auditorías Reaba', area: 'Reabasto',
+    tipos: ['Faltante', 'Sobrante', 'Cruce SKU', 'Merma', 'Conforme'],
+    campoId: 'lpn', labelId: 'LPN', usaEstacion: false, usaAuxiliar: true, usaCodigo: true,
+    tipoSoloLpn: 'Conforme', tiposCierreAuto: ['Conforme'], conDescripcion: true,
   },
   API: {
-    titulo: 'Incidencia Apilador',
-    areas: ['Apilador'],
-    tiposPorArea: { Apilador: ['Faltante', 'Sobrante', 'Merma', 'Con stock en IP6'] },
-    campoId: 'cubeta', labelId: 'Cubeta', usaEstacion: false, usaCodigo: true,
+    key: 'api', titulo: 'Incidencias de Apilador', area: 'Apilador',
+    tipos: ['Faltante', 'Sobrante', 'Merma', 'Con stock en IP6'],
+    campoId: 'cubeta', labelId: 'N° Cubeta', usaEstacion: false, usaAuxiliar: false, usaCodigo: true,
+    codigoOpcionalTipo: 'Con stock en IP6', tiposCierreAuto: [], conDescripcion: false,
   },
   AFR: {
-    titulo: 'Incidencia AFRAME',
-    areas: ['Aframe'],
-    tiposPorArea: { Aframe: ['Faltante', 'Sobrante', 'Merma', 'Con stock en IP6'] },
-    campoId: 'cubeta', labelId: 'Cubeta', usaEstacion: false, usaCodigo: true,
+    key: 'afr', titulo: 'Incidencias de AFRAME', area: 'Aframe',
+    tipos: ['Faltante', 'Sobrante', 'Merma', 'Con stock en IP6'],
+    campoId: 'cubeta', labelId: 'N° Cubeta', usaEstacion: false, usaAuxiliar: false, usaCodigo: true,
+    codigoOpcionalTipo: 'Con stock en IP6', tiposCierreAuto: [], conDescripcion: false,
   },
 }
 
 const VACIO = {
-  area: '', tipo: '', lpn: '', cubeta: '', estacion: '',
-  codigo: '', lote: '', cantidad: '', um: 'Caja', observacion: '',
+  tipo: '', auxiliar: '', estacion: '', lpn: '', cubeta: '',
+  codigo: '', lote: '', cantidad: '', observacion: '',
+}
+
+/* ===== Parseo de QR GS1: (02)SKU (10)LOTE (37)CANT ===== */
+function parsearQR(txt: string) {
+  const t = txt.replace(/\x1D/g, '')
+  const ai = (code: string) => {
+    const m = t.match(new RegExp(`\\(?${code}\\)?([^()\\x1D]+)`))
+    return m ? m[1].trim() : ''
+  }
+  const sku = ai('02')
+  return { sku, lote: ai('10'), cant: ai('37') }
+}
+
+/* ===== Cubeta: 10-003649 o 10003649 → 3649 ===== */
+function parsearCubeta(txt: string) {
+  const t = txt.trim()
+  if (t.includes('-')) return String(parseInt(t.split('-')[1], 10) || t)
+  const d = t.replace(/\D/g, '')
+  if (d.length === 8) return String(parseInt(d.slice(2), 10))
+  if (d.length === 6) return String(parseInt(d, 10))
+  return t
 }
 
 export default function CapturaForm({ modulo }: { modulo: string }) {
@@ -63,55 +93,80 @@ export default function CapturaForm({ modulo }: { modulo: string }) {
   const editId = params.get('edit')
   const { user } = useAuth()
   const { rows, recargar } = useData()
-  const [f, setF] = useState({ ...VACIO, area: cfg.areas[0] })
+  const [f, setF] = useState({ ...VACIO })
   const [desc, setDesc] = useState('')
   const [precio, setPrecio] = useState<number | null>(null)
+  const [auxiliares, setAuxiliares] = useState<string[]>([])
+  const [showAux, setShowAux] = useState(false)
   const [scan, setScan] = useState<null | 'id' | 'codigo'>(null)
   const [msg, setMsg] = useState<null | { tipo: 'ok' | 'error'; texto: string }>(null)
   const [guardando, setGuardando] = useState(false)
   const [exito, setExito] = useState<string | null>(null)
 
-  /* Modo corrección: precarga la captura propia */
+  const esSoloLpn = !!cfg.tipoSoloLpn && f.tipo === cfg.tipoSoloLpn
+  const cierreAuto = cfg.tiposCierreAuto.includes(f.tipo)
+  const muestraCodigo = cfg.usaCodigo && !esSoloLpn
+  const codigoOpcional = cfg.codigoOpcionalTipo === f.tipo
+
+  /* Autocomplete de auxiliares del área del módulo */
+  useEffect(() => {
+    if (!cfg.usaAuxiliar || !apiActiva()) return
+    api.buscarAuxiliares(localStorage.getItem('ims_token') ?? user?.usuario ?? '', cfg.area)
+      .then(list => {
+        setAuxiliares(list)
+        setF(p => ({ ...p, auxiliar: list.includes(user?.nombre ?? '') ? (user?.nombre ?? '') : p.auxiliar }))
+      })
+      .catch(() => setAuxiliares([]))
+  }, [cfg, user])
+
+  /* Modo corrección */
   useEffect(() => {
     if (!editId) return
     const r = rows.find(x => x.id === editId)
     if (!r) return
     setF({
-      area: r.area || cfg.areas[0], tipo: r.tipo || '',
-      lpn: r.lpn || '', cubeta: r.cubeta || '', estacion: r.estacion || '',
-      codigo: r.codigo || '', lote: r.lote || '', cantidad: String(r.cantidad || ''),
-      um: r.um || 'Caja', observacion: r.observacion || '',
+      tipo: r.tipo || '', auxiliar: r.reportado || '', estacion: r.estacion || '',
+      lpn: r.lpn || '', cubeta: r.cubeta || '', codigo: r.codigo || '',
+      lote: r.lote || '', cantidad: String(r.cantidad || ''), observacion: r.observacion || '',
     })
-  }, [editId, rows, cfg])
+  }, [editId, rows])
 
   const set = (k: keyof typeof VACIO) =>
     (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
       setF(p => ({ ...p, [k]: e.target.value }))
 
-  const tipos = cfg.tiposPorArea[f.area] ?? []
-
-  /* Autocompletado desde el catálogo de productos */
   const buscarSku = async (cod: string) => {
-    if (!apiActiva() || !cod.trim()) { setDesc(''); setPrecio(null); return }
+    if (!apiActiva() || !cod.trim() || !cfg.conDescripcion) { setDesc(''); setPrecio(null); return }
     try {
       const sku = await api.buscarSku(localStorage.getItem('ims_token') ?? user?.usuario ?? '', cod.trim())
-      setDesc(sku?.d ?? ''); setPrecio(sku?.p ?? null)
+      setDesc(sku?.d ?? 'SKU no encontrado en catálogo'); setPrecio(sku?.p ?? null)
     } catch { setDesc(''); setPrecio(null) }
   }
 
   const cant = parseFloat(String(f.cantidad).replace(',', '.')) || 0
   const valorizado = precio != null ? Math.round(precio * cant * 100) / 100 : null
+  const sugeridos = useMemo(() => {
+    const t = f.auxiliar.trim().toLowerCase()
+    if (!t) return auxiliares.slice(0, 6)
+    return auxiliares.filter(n => n.toLowerCase().includes(t)).slice(0, 6)
+  }, [f.auxiliar, auxiliares])
 
   const enviar = async () => {
     setMsg(null)
     if (!f.tipo) { setMsg({ tipo: 'error', texto: 'Selecciona el tipo de incidencia' }); return }
+    if (cfg.usaAuxiliar && !esSoloLpn && !f.auxiliar.trim()) { setMsg({ tipo: 'error', texto: 'Selecciona el auxiliar que reporta' }); return }
+    if (cfg.usaEstacion && !esSoloLpn && !f.estacion) { setMsg({ tipo: 'error', texto: 'Selecciona la estación' }); return }
     if (!f[cfg.campoId].trim()) { setMsg({ tipo: 'error', texto: `Escanea o escribe el ${cfg.labelId}` }); return }
-    if (cant <= 0) { setMsg({ tipo: 'error', texto: 'La cantidad debe ser mayor a 0' }); return }
-    if (cfg.usaCodigo && f.tipo !== 'Conforme' && !f.codigo.trim()) { setMsg({ tipo: 'error', texto: 'Escanea o escribe el SKU' }); return }
+    if (!esSoloLpn) {
+      if (muestraCodigo && !codigoOpcional && !f.codigo.trim()) { setMsg({ tipo: 'error', texto: 'Escanea el código del artículo' }); return }
+      if (cfg.conDescripcion && !f.lote.trim()) { setMsg({ tipo: 'error', texto: 'El lote es obligatorio (auto con QR o manual con código de barras)' }); return }
+      if (cant <= 0) { setMsg({ tipo: 'error', texto: 'La cantidad debe ser mayor a 0 (en unidades)' }); return }
+    }
     setGuardando(true)
     const datos = {
-      area: f.area, tipo: f.tipo, lpn: f.lpn, cubeta: f.cubeta, estacion: f.estacion,
-      codigo: f.codigo, lote: f.lote, cantidad: cant, um: f.um, observacion: f.observacion,
+      area: cfg.area, tipo: f.tipo, reportado: f.auxiliar, estacion: f.estacion,
+      lpn: f.lpn, cubeta: f.cubeta, codigo: f.codigo, lote: f.lote,
+      cantidad: esSoloLpn ? 0 : cant, um: 'Unidad', observacion: f.observacion,
     }
     try {
       const tok = localStorage.getItem('ims_token') ?? user?.usuario ?? ''
@@ -130,17 +185,33 @@ export default function CapturaForm({ modulo }: { modulo: string }) {
     }
   }
 
-  /* ===== Pantalla de éxito ===== */
+  /* Guardia por área: solo el módulo del rol del usuario */
+  const permitidos = MODULOS_POR_ROL[(user?.rol ?? '').split('_')[0]]
+  if (permitidos && !permitidos.includes(modulo)) {
+    return (
+      <div className="space-y-3">
+        <button onClick={() => nav('/captura')} className="flex items-center gap-1 text-xs font-bold text-muted hover:text-ink">
+          <ChevronLeft size={14} /> Volver
+        </button>
+        <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-6 text-center">
+          <p className="text-sm font-bold text-red-600 dark:text-[#ff4d58]">Módulo no habilitado para tu área</p>
+          <p className="mt-1 text-xs text-muted">Solo puedes capturar en los módulos de tu área asignada.</p>
+        </div>
+      </div>
+    )
+  }
+
+
   if (exito) {
     return (
       <div className="space-y-3">
         <div className="rounded-xl border border-ok/30 bg-ok/10 p-6 text-center">
-          <p className="text-sm font-bold text-ok">{editId ? 'Corrección guardada' : 'Captura registrada'}</p>
+          <p className="text-sm font-bold text-ok">{editId ? 'Corrección guardada' : cierreAuto ? 'Captura registrada y cerrada automáticamente' : 'Captura registrada'}</p>
           <p className="mt-1 font-mono text-xs font-bold">{exito}</p>
         </div>
         <div className="grid grid-cols-2 gap-2">
           <button
-            onClick={() => { setExito(null); setF({ ...VACIO, area: cfg.areas[0] }); setDesc(''); setPrecio(null); setMsg(null) }}
+            onClick={() => { setExito(null); setF({ ...VACIO }); setDesc(''); setPrecio(null); setMsg(null) }}
             className="h-11 rounded-lg bg-adecco text-sm font-bold text-white transition hover:bg-adecco-hover"
           >
             Capturar otra
@@ -153,89 +224,138 @@ export default function CapturaForm({ modulo }: { modulo: string }) {
     )
   }
 
-  /* ===== Formulario ===== */
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <button onClick={() => nav(-1)} className="grid h-9 w-9 place-items-center rounded-lg border border-line text-muted">
+      {/* Encabezado con ícono del módulo */}
+      <div className="flex items-center gap-3">
+        <button onClick={() => nav(-1)} className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-line text-muted">
           <ChevronLeft size={16} />
         </button>
-        <h2 className="text-lg font-extrabold tracking-tight">{cfg.titulo}</h2>
+        <IconoModulo k={cfg.key} className="h-11 w-11 shrink-0" />
+        <div className="min-w-0">
+          <h2 className="truncate text-lg font-extrabold leading-tight tracking-tight">{cfg.titulo}</h2>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-muted">Área {cfg.area} · Llenar todos los campos requeridos</p>
+        </div>
         {editId && (
-          <span className="rounded-full border border-warn/30 bg-warn/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-warn">
+          <span className="ml-auto shrink-0 rounded-full border border-warn/30 bg-warn/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-warn">
             Corrección
           </span>
         )}
       </div>
 
       <div className="space-y-3 rounded-xl border border-line bg-surface p-4 shadow-card">
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className={label}>Área</label>
-            <select className={input} value={f.area} onChange={set('area')} disabled={!!editId}>
-              {cfg.areas.map(a => <option key={a}>{a}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className={label}>Tipo</label>
-            <select className={input} value={f.tipo} onChange={set('tipo')}>
-              <option value="">Selecciona…</option>
-              {tipos.map(t => <option key={t}>{t}</option>)}
-            </select>
-          </div>
+        {/* Tipo */}
+        <div>
+          <label className={label}>Tipo de incidencia *</label>
+          <select className={input} value={f.tipo} onChange={set('tipo')} disabled={!!editId}>
+            <option value="">Selecciona…</option>
+            {cfg.tipos.map(t => <option key={t}>{t}</option>)}
+          </select>
         </div>
 
+        {cierreAuto && (
+          <p className="flex items-start gap-2 rounded-lg border border-info/30 bg-info/10 px-3 py-2 text-[11px] font-semibold text-info">
+            <Info size={14} className="mt-0.5 shrink-0" />
+            Este tipo de incidencia se cierra automáticamente al registrarse: no requiere seguimiento.
+          </p>
+        )}
+
+        {!esSoloLpn && cfg.usaAuxiliar && (
+          <div className="relative">
+            <label className={label}>Auxiliar que reporta *</label>
+            <input
+              className={input}
+              value={f.auxiliar}
+              onChange={set('auxiliar')}
+              onFocus={() => setShowAux(true)}
+              onBlur={() => setTimeout(() => setShowAux(false), 150)}
+              placeholder="Escribe o selecciona el nombre"
+            />
+            {showAux && sugeridos.length > 0 && (
+              <ul className="absolute z-20 mt-1 max-h-40 w-full overflow-y-auto rounded-lg border border-line bg-surface shadow-card">
+                {sugeridos.map(n => (
+                  <li key={n}>
+                    <button
+                      type="button"
+                      onMouseDown={() => setF(p => ({ ...p, auxiliar: n }))}
+                      className="w-full px-3 py-2 text-left text-xs font-semibold hover:bg-surface2"
+                    >
+                      {n}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+
+        {!esSoloLpn && cfg.usaEstacion && (
+          <div>
+            <label className={label}>Estación *</label>
+            <select className={input} value={f.estacion} onChange={set('estacion')}>
+              <option value="">Selecciona…</option>
+              {ESTACIONES.map(e => <option key={e}>{e}</option>)}
+            </select>
+          </div>
+        )}
+
+        {/* LPN / Cubeta */}
         <div>
-          <label className={label}>{cfg.labelId}</label>
+          <label className={label}>{cfg.labelId} *</label>
           <div className="flex gap-2">
-            <input className={input} value={f[cfg.campoId]} onChange={set(cfg.campoId)} placeholder={`Escribe o escanea ${cfg.labelId}`} />
-            <button type="button" onClick={() => setScan('id')} title={`Escanear ${cfg.labelId}`}
-              className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-adecco text-white transition hover:bg-adecco-hover">
+            <input className={input} value={f[cfg.campoId]} onChange={set(cfg.campoId)} placeholder={`Escanea o escribe ${cfg.labelId}`} />
+            <button
+              type="button"
+              onClick={() => setScan('id')}
+              title={`Escanear ${cfg.labelId}`}
+              className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-adecco text-white transition hover:bg-adecco-hover"
+            >
               <ScanBarcode size={20} />
             </button>
           </div>
+          {cfg.campoId === 'cubeta' && f.cubeta && (
+            <p className="mt-1 font-mono text-[11px] font-bold text-muted">Cubeta a guardar: {f.cubeta}</p>
+          )}
         </div>
 
-        {cfg.usaEstacion && (
+        {/* SKU / Artículo */}
+        {muestraCodigo && (
           <div>
-            <label className={label}>Estación</label>
-            <input className={input} value={f.estacion} onChange={set('estacion')} placeholder="Ej. D12 / R12" />
-          </div>
-        )}
-
-        {cfg.usaCodigo && (
-          <div>
-            <label className={label}>SKU / EAN</label>
+            <label className={label}>
+              {cfg.conDescripcion ? 'QR o EAN *' : `Artículo${codigoOpcional ? ' (opcional)' : ' *'}`}
+            </label>
             <div className="flex gap-2">
-              <input className={input} value={f.codigo} onChange={set('codigo')} onBlur={e => void buscarSku(e.target.value)} placeholder="Escanea el código" />
-              <button type="button" onClick={() => setScan('codigo')} title="Escanear SKU"
-                className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-adecco text-white transition hover:bg-adecco-hover">
+              <input className={input} value={f.codigo} onChange={set('codigo')} onBlur={e => void buscarSku(e.target.value)} placeholder="Escanea QR o código de barras" />
+              <button
+                type="button"
+                onClick={() => setScan('codigo')}
+                title="Escanear código"
+                className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-adecco text-white transition hover:bg-adecco-hover"
+              >
                 <ScanBarcode size={20} />
               </button>
             </div>
-            {desc && <p className="mt-1 truncate text-[11px] font-semibold text-muted">{desc}</p>}
+            {cfg.conDescripcion && desc && (
+              <p className="mt-1 truncate text-[11px] font-semibold text-muted">{desc}</p>
+            )}
           </div>
         )}
 
-        <div className="grid grid-cols-3 gap-3">
+        {!esSoloLpn && cfg.conDescripcion && (
           <div>
-            <label className={label}>Lote</label>
-            <input className={input} value={f.lote} onChange={set('lote')} />
+            <label className={label}>Lote *</label>
+            <input className={input} value={f.lote} onChange={set('lote')} placeholder="Auto con QR · manual con código de barras" />
           </div>
-          <div>
-            <label className={label}>Cantidad</label>
-            <input className={input} inputMode="numeric" value={f.cantidad} onChange={set('cantidad')} />
-          </div>
-          <div>
-            <label className={label}>UM</label>
-            <select className={input} value={f.um} onChange={set('um')}>
-              <option>Caja</option>
-              <option>Unidad</option>
-            </select>
-          </div>
-        </div>
+        )}
 
-        {valorizado != null && valorizado > 0 && (
+        {!esSoloLpn && (
+          <div>
+            <label className={label}>Cantidad total en unidades *</label>
+            <input className={input} inputMode="numeric" value={f.cantidad} onChange={set('cantidad')} placeholder="0" />
+          </div>
+        )}
+
+        {!esSoloLpn && cfg.conDescripcion && valorizado != null && valorizado > 0 && (
           <p className="rounded-lg border border-line bg-surface2 px-3 py-2 font-mono text-xs font-bold tabular-nums">
             Valorizado estimado: {fmtMoney(valorizado)}
           </p>
@@ -260,7 +380,7 @@ export default function CapturaForm({ modulo }: { modulo: string }) {
           disabled={guardando || !apiActiva()}
           className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-adecco text-sm font-bold uppercase tracking-widest text-white transition hover:bg-adecco-hover disabled:opacity-50"
         >
-          <Save size={16} /> {guardando ? 'Guardando…' : editId ? 'Guardar corrección' : 'Registrar captura'}
+          <Save size={16} /> {guardando ? 'Guardando…' : editId ? 'Guardar corrección' : 'Guardar'}
         </button>
         {!apiActiva() && (
           <p className="text-center text-[11px] font-semibold text-warn">La captura requiere conexión a Apps Script.</p>
@@ -270,8 +390,25 @@ export default function CapturaForm({ modulo }: { modulo: string }) {
       {scan && (
         <Escaner
           onDetect={txt => {
-            if (scan === 'id') setF(p => ({ ...p, [cfg.campoId]: txt }))
-            else { setF(p => ({ ...p, codigo: txt })); void buscarSku(txt) }
+            if (scan === 'id') {
+              const v = cfg.campoId === 'cubeta' ? parsearCubeta(txt) : txt
+              setF(p => ({ ...p, [cfg.campoId]: v }))
+            } else {
+              const qr = parsearQR(txt)
+              if (qr.sku) {
+                /* QR GS1: SKU + lote + cantidad autocompletados (cantidad editable) */
+                setF(p => ({
+                  ...p,
+                  codigo: qr.sku,
+                  lote: qr.lote || p.lote,
+                  cantidad: qr.cant || p.cantidad,
+                }))
+                void buscarSku(qr.sku)
+              } else {
+                setF(p => ({ ...p, codigo: txt }))
+                void buscarSku(txt)
+              }
+            }
             setScan(null)
           }}
           onClose={() => setScan(null)}

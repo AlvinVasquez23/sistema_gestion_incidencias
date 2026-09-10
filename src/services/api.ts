@@ -38,6 +38,9 @@ export const api = {
     llamar<unknown>('corregir', { token, modulo, id, datos }),
   buscarSku: (token: string, codigo: string) =>
     llamar<{ d: string; p: number | null } | null>('buscar_sku', { token, codigo }),
+
+  buscarAuxiliares: (token: string, area: string) =>
+    llamar<string[]>('buscar_auxiliares', { token, area }),  
   
 }
 

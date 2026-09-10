@@ -1,14 +1,15 @@
 import { useMemo, useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import {
-  Home, ClipboardList, Search, LogOut,
-  PackageOpen, ClipboardCheck, Forklift, Layers,
+  Home, ClipboardList, Search, LogOut, Sun, Moon,
+  PackageOpen, ClipboardCheck, Forklift, Layers, Lock,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../../context/AuthContext'
 import { useData } from '../../context/DataContext'
 import { LogoAdecco } from '../ui/LogoAdecco'
 import DetalleIncidencia from '../detalle/DetalleIncidencia'
+import { useTheme } from '../../context/ThemeContext'
 
 
 const RUTA_MODULO: Record<string, string> = { AMR: 'amr', AUD: 'aud', API: 'api', AFR: 'afr' }
@@ -32,18 +33,27 @@ function Pill({ status }: { status: string }) {
 export default function CaptureShell() {
   const { user, logout } = useAuth()
   const nav = useNavigate()
+  const { theme, toggle } = useTheme()
+
   return (
     <div className="flex min-h-dvh flex-col bg-bg">
       <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-line bg-surface/80 px-4 backdrop-blur">
         <LogoAdecco className="h-8 w-8 rounded-lg text-[7px]" />
         <div className="min-w-0">
-          <p className="truncate text-sm font-extrabold leading-tight">Captura de incidencias</p>
+          <p className="truncate text-sm font-extrabold leading-tight">Registro de incidencias</p>
           <p className="truncate text-[10px] font-semibold uppercase tracking-wider text-muted">{user?.nombre}</p>
         </div>
         <button
+          onClick={toggle}
+          title="Cambiar tema"
+          className="ml-auto grid h-9 w-9 place-items-center rounded-lg border border-line text-muted transition-colors hover:bg-surface2 hover:text-ink"
+        >
+          {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+        </button>        
+        <button
           onClick={() => { logout(); nav('/login') }}
           title="Cerrar sesión"
-          className="ml-auto grid h-9 w-9 place-items-center rounded-lg border border-line text-muted transition-colors hover:bg-surface2 hover:text-ink"
+          className="grid h-9 w-9 place-items-center rounded-lg border border-line text-muted transition-colors hover:bg-surface2 hover:text-ink"
         >
           <LogOut size={16} />
         </button>
@@ -55,8 +65,8 @@ export default function CaptureShell() {
 
       <nav className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-3 border-t border-line bg-surface/90 backdrop-blur">
         {([
-          { to: '/captura', icon: Home, label: 'Capturar' },
-          { to: '/captura/mis', icon: ClipboardList, label: 'Mis capturas' },
+          { to: '/captura', icon: Home, label: 'Registrar incidencia' },
+          { to: '/captura/mis', icon: ClipboardList, label: 'Mis registros' },
           { to: '/captura/consulta', icon: Search, label: 'Consulta' },
         ] as const).map(n => (
           <NavLink
@@ -78,28 +88,54 @@ export default function CaptureShell() {
 }
 
 export function CapturaHome() {
-  const mods = [
-    { to: '/captura/amr', icon: PackageOpen, t: 'Incidencias AMR', d: 'Decanting / Reabasto' },
-    { to: '/captura/aud', icon: ClipboardCheck, t: 'Auditorías Reaba', d: 'Reabasto' },
-    { to: '/captura/api', icon: Forklift, t: 'Apilador', d: 'Cubetas IP6' },
-    { to: '/captura/afr', icon: Layers, t: 'AFRAME', d: 'Cubetas AFR' },
+  const { user } = useAuth()
+  const [aviso, setAviso] = useState<string | null>(null)
+  const TODOS = [
+    { key: 'AMR', to: '/captura/amr', icon: PackageOpen, t: 'Incidencias AMR', d: 'Decanting' },
+    { key: 'AUD', to: '/captura/aud', icon: ClipboardCheck, t: 'Auditorías Reaba', d: 'Reabasto' },
+    { key: 'API', to: '/captura/api', icon: Forklift, t: 'Incidencias de Apilador', d: 'Decanting' },
+    { key: 'AFR', to: '/captura/afr', icon: Layers, t: 'Incidencias de AFRAME', d: 'AFRAME' },
   ]
+  const POR_ROL: Record<string, string[]> = {
+    decanting: ['AMR', 'API'], reabasto: ['AUD'], inventarios: ['API'], aframe: ['AFR'],
+  }
+  const permitidos = POR_ROL[(user?.rol ?? '').split('_')[0]] ?? TODOS.map(t => t.key)
   return (
     <div className="space-y-3">
-      <h2 className="text-lg font-extrabold tracking-tight">¿Qué vas a capturar?</h2>
+      <h2 className="text-lg font-extrabold tracking-tight">¿Qué vas a registrar?</h2>
       <div className="grid grid-cols-2 gap-3">
-        {mods.map(m => (
-          <NavLink
-            key={m.to}
-            to={m.to}
-            className="flex flex-col items-start gap-2 rounded-xl border border-line bg-surface p-4 shadow-card transition hover:border-adecco"
-          >
-            <m.icon size={22} className="text-adecco" />
-            <p className="text-sm font-bold leading-tight">{m.t}</p>
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted">{m.d}</p>
-          </NavLink>
-        ))}
+        {TODOS.map(m => {
+          const ok = permitidos.includes(m.key)
+          return ok ? (
+            <NavLink
+              key={m.to}
+              to={m.to}
+              className="flex flex-col items-start gap-2 rounded-xl border border-line bg-surface p-4 shadow-card transition hover:border-adecco"
+            >
+              <m.icon size={22} className="text-adecco" />
+              <p className="text-sm font-bold leading-tight">{m.t}</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted">{m.d}</p>
+            </NavLink>
+          ) : (
+            <button
+              key={m.to}
+              type="button"
+              onClick={() => setAviso(`No tiene acceso a ${m.t}`)}
+              className="relative flex flex-col items-start gap-2 rounded-xl border border-line bg-surface p-4 opacity-50 shadow-card"
+            >
+              <Lock size={14} className="absolute right-3 top-3 text-muted" />
+              <m.icon size={22} className="text-muted" />
+              <p className="text-sm font-bold leading-tight text-muted">{m.t}</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted">{m.d}</p>
+            </button>
+          )
+        })}
       </div>
+      {aviso && (
+        <p className="rounded-lg border border-warn/30 bg-warn/10 px-3 py-2 text-xs font-semibold text-warn">
+          {aviso}
+        </p>
+      )}
     </div>
   )
 }
@@ -117,7 +153,7 @@ export function MisCapturas() {
       <h2 className="text-lg font-extrabold tracking-tight">Mis capturas recientes</h2>
       {mias.length === 0 && (
         <p className="rounded-xl border border-line bg-surface p-4 text-sm text-muted">
-          Aún no registras incidencias desde la app.
+          Aún no tienes incidencias registras.
         </p>
       )}
       <ul className="space-y-2">
@@ -157,6 +193,7 @@ export function ConsultaIncidencias() {
     const t = q.trim().toLowerCase()
     if (!t) return []
     return rows
+      .filter(r => String(r.status || '').toLowerCase() !== 'cerrado')
       .filter(r => [r.id, r.lpn, r.cubeta, r.codigo, r.descripcion].some(v => (v || '').toLowerCase().includes(t)))
       .slice(0, 20)
   }, [q, rows])
