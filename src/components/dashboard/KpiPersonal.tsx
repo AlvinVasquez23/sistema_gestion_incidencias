@@ -39,13 +39,6 @@ export default function KpiPersonal({ rows }: { rows: Incidencia[] }) {
     return Object.entries(m).map(([k, v]) => ({ k, v })).sort((a, b) => b.v - a.v).slice(0, 5)
   }, [data])
 
-  const tend14 = useMemo(() => {
-    return Array.from({ length: 14 }, (_, i) => {
-      const d = new Date(Date.now() - (13 - i) * 86400000)
-      const f = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`
-      return { f, n: data.filter(r => r.fecha === f).length }
-    })
-  }, [data])
 
   const total = data.length
   const diasPeriodo = rango === 'todo' ? Math.max(1, Math.ceil((Date.now() - Math.min(...data.map(r => parseFecha(r.fecha)), Date.now() - 86400000)) / 86400000)) : Number(rango)
@@ -54,7 +47,6 @@ export default function KpiPersonal({ rows }: { rows: Incidencia[] }) {
   const reincidentes = topAux.filter(a => a.reincidente).length
   const maxAux = topAux[0]?.n ?? 1
   const maxTipo = topTipos[0]?.v ?? 1
-  const maxT = Math.max(...tend14.map(t => t.n), 1)
   const pct = (n: number) => (total ? Math.round((n / total) * 100) : 0)
 
   const minis = [
@@ -156,8 +148,6 @@ export default function KpiPersonal({ rows }: { rows: Incidencia[] }) {
           ))}
         </div>
       </div>
-
-
     </section>
   )
 }
