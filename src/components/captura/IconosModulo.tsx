@@ -1,5 +1,5 @@
 /* Íconos ilustrativos por módulo (SVG inline, sin dependencias) */
-export function IconoModulo({ k, className }: { k: 'amr' | 'aud' | 'api' | 'afr'; className?: string }) {
+export function IconoModulo({ k, className }: { k: 'amr' | 'aud' | 'api' | 'afr' | 'aux'; className?: string }) {
   const c = className ?? 'h-12 w-12'
   if (k === 'amr') {
     return (
@@ -33,6 +33,17 @@ export function IconoModulo({ k, className }: { k: 'amr' | 'aud' | 'api' | 'afr'
       </svg>
     )
   }
+
+  if (k === 'aux') {
+    return (
+      <svg viewBox="0 0 48 48" className={c} fill="none">
+        <circle cx="22" cy="15" r="8" fill="#E30613" />
+        <path d="M6 40c0-8.8 7.2-16 16-16s16 7.2 16 16" fill="#b8050f" />
+        <circle cx="36" cy="13" r="7.5" fill="#fff" stroke="#E30613" strokeWidth="2.5" />
+        <path d="M36 9.5v4.5M36 17h.01" stroke="#E30613" strokeWidth="2.5" strokeLinecap="round" />
+      </svg>
+    )
+  }  
   return (
     <svg viewBox="0 0 48 48" className={c} fill="none">
       <path d="M8 6v36M40 6v36" stroke="#E30613" strokeWidth="3.5" strokeLinecap="round" />

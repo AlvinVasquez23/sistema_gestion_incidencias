@@ -48,6 +48,7 @@ export default function App() {
                     <Route path="/aud" element={<ModuloPage key="aud" vista="aud" />} />
                     <Route path="/api" element={<ModuloPage key="api" vista="api" />} />
                     <Route path="/afr" element={<ModuloPage key="afr" vista="afr" />} />
+                    <Route path="/auxp" element={<ModuloPage key="auxp" vista="auxp" />} />           
                   </Route>
 
                   {/* ===== Zona auxiliares (shell de captura) ===== */}
@@ -59,6 +60,7 @@ export default function App() {
                     <Route path="aud" element={<CapturaForm modulo="AUD" />} />
                     <Route path="api" element={<CapturaForm modulo="API" />} />
                     <Route path="afr" element={<CapturaForm modulo="AFR" />} />
+                    <Route path="aux" element={<CapturaForm modulo="AUX" />} />                    
                   </Route>
 
                   <Route path="*" element={<Navigate to="/" replace />} />

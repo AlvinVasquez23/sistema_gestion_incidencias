@@ -8,8 +8,9 @@ import DetalleIncidencia from '../components/detalle/DetalleIncidencia'
 import { fmtMoney } from '../data/mock'
 import { useSettings } from '../context/SettingsContext'
 
-const MODULO_DE_VISTA: Record<string, 'AMR' | 'AUD' | 'API' | 'AFR' | null> = {
-  pool: null, amr: 'AMR', aud: 'AUD', api: 'API', afr: 'AFR',
+const MODULO_DE_VISTA: Record<string, 'AMR' | 'AUD' | 'API' | 'AFR' | 'AUX' | null> = {
+  pool: null, amr: 'AMR', aud: 'AUD', api: 'API', afr: 'AFR', auxp: 'AUX'
+
 }
 const toISO = (f: string) => { const [d, m, y] = f.split('/'); return `${y}-${m}-${d}` }
 
@@ -141,7 +142,7 @@ export default function ModuloPage({ vista }: { vista: string }) {
             </Field>
           </>
         )}
-        {vista !== 'api' && vista !== 'afr' && (
+        {vista !== 'api' && vista !== 'afr' && vista !== 'auxp' && (          
           <Field label="Área">
             <select className={select} value={area} onChange={e => { setArea(e.target.value); setPag(1) }}>
               <option>Todas</option><option>Decanting</option><option>Reabasto</option>
@@ -181,7 +182,7 @@ export default function ModuloPage({ vista }: { vista: string }) {
       </div>
 
       {/* Tabla (Apilador/AFRAME: solo lectura, sin detalle) */}
-      <TablaIncidencias rows={corte} cols={cfg.cols} onVer={cfg.conStatus ? setDetalle : undefined} />
+      <TablaIncidencias rows={corte} cols={cfg.cols} onVer={(cfg.conStatus || vista === 'auxp') ? setDetalle : undefined}/>
 
       {/* Paginación */}
       <div className="flex items-center justify-between text-xs font-semibold text-muted">

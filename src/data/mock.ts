@@ -27,7 +27,7 @@ export const TIPOS_POR_AREA: Record<string, string[]> = {
   Aframe: ['Faltante', 'Sobrante', 'Merma', 'Con stock en IP6'],
 }
 
-export type Modulo = 'AMR' | 'AUD' | 'API' | 'AFR'
+export type Modulo = 'AMR' | 'AUD' | 'API' | 'AFR' | 'AUX'
 export type Status = 'Pendiente' | 'Revisado' | 'Cerrado'
 export type Sla = 'Normal' | 'Alerta' | 'Crítico'
 
@@ -42,6 +42,9 @@ export interface Incidencia {
   obs_revision?: string; usuario_revision?: string; fecha_revision?: string; hora_revision?: string
   hist_mod?: string
   usuario_registro?: string  
+  auxiliar_persona?: string
+  origen?: string  
+  ts?: number  
   /* Campos de cierre */
   causa_raiz?: string; usuario_cierre?: string; fecha_cierre?: string; hora_cierre?: string
 }

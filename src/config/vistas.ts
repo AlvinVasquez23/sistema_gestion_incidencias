@@ -1,6 +1,6 @@
 /* ===== Configuración de columnas por módulo (espejo de la webapp Apps Script) ===== */
 export type ColKey =
-  | 'fecha' | 'area' | 'tipo' | 'lpn' | 'cubeta' | 'codigo'
+  | 'fecha' | 'area' | 'tipo' | 'lpn' | 'cubeta' | 'auxiliar' | 'codigo'
   | 'cantidad' | 'valorizado' | 'status' | 'sla' | 'observacion' | 'acc'
 
 export interface VistaCfg {
@@ -16,10 +16,11 @@ export const VISTAS: Record<string, VistaCfg> = {
   aud:  { titulo: 'Auditorías Reaba',     cols: ['fecha', 'sla', 'tipo', 'lpn', 'codigo', 'valorizado', 'status', 'acc'], conStatus: true, conValorizado: true },
   api:  { titulo: 'Incidencias Apilador', cols: ['fecha', 'cubeta', 'tipo', 'codigo', 'cantidad', 'observacion'], conStatus: false, conValorizado: false },
   afr:  { titulo: 'Incidencias AFRAME',   cols: ['fecha', 'cubeta', 'tipo', 'codigo', 'cantidad', 'observacion'], conStatus: false, conValorizado: false },
+  auxp: { titulo: 'Incidencias de personal', cols: ['fecha', 'auxiliar', 'lpn', 'tipo', 'codigo', 'cantidad', 'observacion'], conStatus: false, conValorizado: false },
 }
 
 export const TIT_COLS: Record<ColKey, string> = {
-  fecha: 'Fecha', area: 'Área', tipo: 'Tipo', lpn: 'LPN', cubeta: 'Cubeta',
+  fecha: 'Fecha', area: 'Área', tipo: 'Tipo', lpn: 'LPN', cubeta: 'Cubeta', auxiliar: 'Auxiliar',
   codigo: 'SKU / Descripción', cantidad: 'Cant.', valorizado: 'Valorizado',
   status: 'Status', sla: 'Estado', observacion: 'Observación', acc: 'Acciones',
 }
@@ -44,6 +45,13 @@ const CSV_CORTO = [
   { key: 'tipo', head: 'tipo_incidencia' }, { key: 'codigo', head: 'articulo' },
   { key: 'cantidad', head: 'cantidad' }, { key: 'observacion', head: 'observacion' },
 ]
+const CSV_AUX = [
+  { key: 'id', head: 'id' }, { key: 'fecha', head: 'fecha' }, { key: 'hora', head: 'hora' },
+  { key: 'auxiliar_persona', head: 'auxiliar' }, { key: 'lpn', head: 'lpn' },
+  { key: 'tipo', head: 'tipo_incidencia' }, { key: 'codigo', head: 'articulo' },
+  { key: 'cantidad', head: 'cantidad' }, { key: 'observacion', head: 'observacion' },
+  { key: 'origen', head: 'origen' }, { key: 'usuario_registro', head: 'usuario_registro' },
+]
 export const CSV_DE_VISTA: Record<string, { key: string; head: string }[]> = {
-  pool: CSV_LARGO, amr: CSV_LARGO, aud: CSV_LARGO, api: CSV_CORTO, afr: CSV_CORTO,
+  pool: CSV_LARGO, amr: CSV_LARGO, aud: CSV_LARGO, api: CSV_CORTO, afr: CSV_CORTO, auxp: CSV_AUX,
 }

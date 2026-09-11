@@ -3,7 +3,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Inbox, Bot, ClipboardCheck, Forklift, Layers,
   Sun, Moon, LogOut, Bell, Settings, Menu, X, ChevronsLeft, ChevronsRight, RefreshCw,
-  CalendarDays, Radio,
+  CalendarDays, Radio, Users,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useTheme } from '../../context/ThemeContext'
@@ -20,6 +20,7 @@ export const NAV = [
   { to: '/aud', label: 'Auditorías Reaba', icon: ClipboardCheck, end: false },
   { to: '/api', label: 'Incidencias Apilador', icon: Forklift, end: false },
   { to: '/afr', label: 'Incidencias AFRAME', icon: Layers, end: false },
+  { to: '/auxp', icon: Users, label: 'Incidencias Personal' },  
 ]
 
 function LogoAdecco({ className }: { className?: string }) {

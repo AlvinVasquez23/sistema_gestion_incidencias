@@ -41,6 +41,10 @@ export const api = {
 
   buscarAuxiliares: (token: string, area: string) =>
     llamar<string[]>('buscar_auxiliares', { token, area }),  
+
+  registrarAux: (token: string, datos: Record<string, unknown>) =>
+    llamar<{ id: string }>('registrar_aux', { token, datos }),
+  tiposAux: (token: string) => llamar<string[]>('tipos_aux', { token }),  
   
 }
 

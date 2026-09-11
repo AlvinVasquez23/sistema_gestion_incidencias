@@ -14,11 +14,11 @@ const label = 'mb-1 block text-[11px] font-bold uppercase tracking-wider text-mu
 
 const ESTACIONES = Array.from({ length: 22 }, (_, i) => `D${String(i + 1).padStart(2, '0')}`)
 const MODULOS_POR_ROL: Record<string, string[]> = {
-  decanting: ['AMR', 'API'], reabasto: ['AUD'], inventarios: ['API'], aframe: ['AFR'],
+  decanting: ['AMR', 'API', 'AUX'], reabasto: ['AUD'], inventarios: ['API'], aframe: ['AFR'],
 }
 
 interface Cfg {
-  key: 'amr' | 'aud' | 'api' | 'afr'
+  key: 'amr' | 'aud' | 'api' | 'afr' | 'aux'
   titulo: string
   area: string
   tipos: string[]
@@ -31,6 +31,8 @@ interface Cfg {
   tiposCierreAuto: string[]
   codigoOpcionalTipo?: string
   conDescripcion: boolean
+  usaLote: boolean
+  tiposRemotos?: boolean  
 }
 
 const CFG: Record<string, Cfg> = {
@@ -39,25 +41,37 @@ const CFG: Record<string, Cfg> = {
     tipos: ['Faltante', 'Sobrante', 'Cruce SKU', 'Faltante de origen', 'Merma'],
     campoId: 'lpn', labelId: 'LPN', usaEstacion: true, usaAuxiliar: true, usaCodigo: true,
     tiposCierreAuto: ['Faltante de origen'], conDescripcion: true,
+    usaLote: true,  
   },
   AUD: {
     key: 'aud', titulo: 'Auditorías Reaba', area: 'Reabasto',
     tipos: ['Faltante', 'Sobrante', 'Cruce SKU', 'Merma', 'Conforme'],
     campoId: 'lpn', labelId: 'LPN', usaEstacion: false, usaAuxiliar: true, usaCodigo: true,
     tipoSoloLpn: 'Conforme', tiposCierreAuto: ['Conforme'], conDescripcion: true,
+    usaLote: true,
   },
   API: {
     key: 'api', titulo: 'Incidencias de Apilador', area: 'Apilador',
     tipos: ['Faltante', 'Sobrante', 'Merma', 'Con stock en IP6'],
     campoId: 'cubeta', labelId: 'N° Cubeta', usaEstacion: false, usaAuxiliar: false, usaCodigo: true,
     codigoOpcionalTipo: 'Con stock en IP6', tiposCierreAuto: [], conDescripcion: false,
+    usaLote: false,
   },
   AFR: {
     key: 'afr', titulo: 'Incidencias de AFRAME', area: 'Aframe',
     tipos: ['Faltante', 'Sobrante', 'Merma', 'Con stock en IP6'],
     campoId: 'cubeta', labelId: 'N° Cubeta', usaEstacion: false, usaAuxiliar: false, usaCodigo: true,
     codigoOpcionalTipo: 'Con stock en IP6', tiposCierreAuto: [], conDescripcion: false,
+    usaLote: false,
   },
+
+  AUX: {
+    key: 'aux', titulo: 'Incidencias de personal', area: 'Decanting',
+    tipos: [], tiposRemotos: true,
+    campoId: 'lpn', labelId: 'LPN', usaEstacion: false, usaAuxiliar: true, usaCodigo: true,
+    usaLote: false, tiposCierreAuto: [], conDescripcion: true,
+  },
+
 }
 
 const VACIO = {
@@ -108,11 +122,19 @@ export default function CapturaForm({ modulo }: { modulo: string }) {
   const [msg, setMsg] = useState<null | { tipo: 'ok' | 'error'; texto: string }>(null)
   const [guardando, setGuardando] = useState(false)
   const [exito, setExito] = useState<string | null>(null)
+  const [tiposRem, setTiposRem] = useState<string[]>([])
+  useEffect(() => {
+    if (!cfg.tiposRemotos || !apiActiva()) return
+    api.tiposAux(localStorage.getItem('ims_token') ?? user?.usuario ?? '')
+      .then(setTiposRem).catch(() => setTiposRem([]))
+  }, [cfg, user])
+
 
   const esSoloLpn = !!cfg.tipoSoloLpn && f.tipo === cfg.tipoSoloLpn
   const cierreAuto = cfg.tiposCierreAuto.includes(f.tipo)
   const muestraCodigo = cfg.usaCodigo && !esSoloLpn
   const codigoOpcional = cfg.codigoOpcionalTipo === f.tipo
+  const tipos = cfg.tiposRemotos ? tiposRem : cfg.tipos
 
   /* Autocomplete de auxiliares del área del módulo */
   useEffect(() => {
@@ -171,7 +193,7 @@ export default function CapturaForm({ modulo }: { modulo: string }) {
     if (!f[cfg.campoId].trim()) { setMsg({ tipo: 'error', texto: `Escanea o escribe el ${cfg.labelId}` }); return }
     if (!esSoloLpn) {
       if (muestraCodigo && !codigoOpcional && !f.codigo.trim()) { setMsg({ tipo: 'error', texto: 'Escanea el código del artículo' }); return }
-      if (cfg.conDescripcion && !f.lote.trim()) { setMsg({ tipo: 'error', texto: 'El lote es obligatorio (auto con QR o manual con código de barras)' }); return }
+      if (cfg.usaLote && !f.lote.trim()) { setMsg({ tipo: 'error', texto: 'El lote es obligatorio (auto con QR o manual con código de barras)' }); return }
       if (cant <= 0) { setMsg({ tipo: 'error', texto: 'La cantidad debe ser mayor a 0 (en unidades)' }); return }
     }
     setGuardando(true)
@@ -182,7 +204,13 @@ export default function CapturaForm({ modulo }: { modulo: string }) {
     }
     try {
       const tok = localStorage.getItem('ims_token') ?? user?.usuario ?? ''
-      if (editId) {
+      if (modulo === 'AUX') {
+        const r = await api.registrarAux(tok, {
+          auxiliar: auxiliarFinal || f.auxiliar, lpn: f.lpn, tipo: f.tipo,
+          articulo: f.codigo, cantidad: cant, observacion: f.observacion,
+        })
+        setExito(r.id)
+      } else if (editId) {
         await api.corregir(tok, modulo, editId, datos)
         setExito(editId)
       } else {
@@ -201,7 +229,7 @@ export default function CapturaForm({ modulo }: { modulo: string }) {
   const permitidos = MODULOS_POR_ROL[(user?.rol ?? '').split('_')[0]]
   if (permitidos && !permitidos.includes(modulo)) {
     return (
-      <div className="space-y-3">
+      <div className="mx-auto w-full max-w-xl space-y-3">
         <button onClick={() => nav('/captura')} className="flex items-center gap-1 text-xs font-bold text-muted hover:text-ink">
           <ChevronLeft size={14} /> Volver
         </button>
@@ -216,7 +244,7 @@ export default function CapturaForm({ modulo }: { modulo: string }) {
 
   if (exito) {
     return (
-      <div className="space-y-3">
+      <div className="mx-auto w-full max-w-xl space-y-3">
         <div className="rounded-xl border border-ok/30 bg-ok/10 p-6 text-center">
           <p className="text-sm font-bold text-ok">{editId ? 'Corrección guardada' : cierreAuto ? 'Captura registrada y cerrada automáticamente' : 'Captura registrada'}</p>
           <p className="mt-1 font-mono text-xs font-bold">{exito}</p>
@@ -243,7 +271,7 @@ export default function CapturaForm({ modulo }: { modulo: string }) {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="mx-auto w-full max-w-xl space-y-4">
       {/* Encabezado con ícono del módulo */}
       <div className="flex items-center gap-3">
         <button onClick={() => nav(-1)} className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-line text-muted">
@@ -267,7 +295,7 @@ export default function CapturaForm({ modulo }: { modulo: string }) {
           <label className={label}>Tipo de incidencia *</label>
           <select className={input} value={f.tipo} onChange={set('tipo')} disabled={!!editId}>
             <option value="">Selecciona…</option>
-            {cfg.tipos.map(t => <option key={t}>{t}</option>)}
+            {tipos.map(t => <option key={t}>{t}</option>)}
           </select>
         </div>
 
@@ -356,7 +384,7 @@ export default function CapturaForm({ modulo }: { modulo: string }) {
           </div>
         )}
 
-        {!esSoloLpn && cfg.conDescripcion && (
+        {!esSoloLpn && cfg.usaLote && (
           <div>
             <label className={label}>Lote *</label>
             <input className={input} value={f.lote} onChange={set('lote')} placeholder="Auto con QR · manual con código de barras" />

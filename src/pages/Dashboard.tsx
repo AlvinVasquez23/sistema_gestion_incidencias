@@ -5,6 +5,7 @@ import { useData } from '../context/DataContext'
 import { fmtMoney, TIPOS_MAT } from '../data/mock'
 import KpiMini from '../components/dashboard/KpiMini'
 import { Sparkline, Donut } from '../components/dashboard/charts'
+import KpiPersonal from '../components/dashboard/KpiPersonal'
 
 const toISO = (f: string) => { const [d, m, y] = f.split('/'); return `${y}-${m}-${d}` }
 const ddmm = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`
@@ -381,6 +382,8 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+{/* ===== KPIs de personal (al final del dashboard) ===== */}
+      <KpiPersonal rows={rows} />
     </div>
   )
 }

@@ -1,5 +1,5 @@
-import type { ReactNode } from 'react'
-import { Eye, ClipboardCheck } from 'lucide-react'
+import { useMemo, useState, type ReactNode } from 'react'
+import { Eye, ClipboardCheck, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
 import clsx from 'clsx'
 import type { Incidencia } from '../../data/mock'
 import { fmtMoney } from '../../data/mock'
@@ -10,13 +10,43 @@ import { useSettings } from '../../context/SettingsContext'
 interface Props {
   rows: Incidencia[]
   cols: ColKey[]
-  onVer?: (id: string) => void   // si no viene, la tabla es solo lectura (Apilador/AFRAME)
+  onVer?: (id: string) => void
 }
+
+type SortDir = 'asc' | 'desc' | null
+const SORTABLES: ColKey[] = ['fecha', 'valorizado', 'cantidad']
 
 export default function TablaIncidencias({ rows, cols, onVer }: Props) {
   const { prefs } = useSettings()
   const padHead = prefs.densidad === 'compacta' ? 'px-3 py-2' : 'px-4 py-3'
-  const padCelda = prefs.densidad === 'compacta' ? 'px-3 py-1.5' : 'px-4 py-3'    
+  const padCelda = prefs.densidad === 'compacta' ? 'px-3 py-1.5' : 'px-4 py-3'
+
+  const [sortCol, setSortCol] = useState<ColKey | null>(null)
+  const [sortDir, setSortDir] = useState<SortDir>(null)
+
+  const toggleSort = (col: ColKey) => {
+    if (sortCol !== col) { setSortCol(col); setSortDir('asc'); return }
+    if (sortDir === 'asc') { setSortDir('desc'); return }
+    setSortCol(null); setSortDir(null)
+  }
+
+  const sorted = useMemo(() => {
+    if (!sortCol || !sortDir) return rows
+    const m = sortDir === 'asc' ? 1 : -1
+    return [...rows].sort((a, b) => {
+      if (sortCol === 'fecha') {
+        return m * ((a.ts ?? 0) - (b.ts ?? 0))
+      }
+      if (sortCol === 'valorizado') {
+        return m * ((a.valorizado ?? 0) - (b.valorizado ?? 0))
+      }
+      if (sortCol === 'cantidad') {
+        return m * ((a.cantidad ?? 0) - (b.cantidad ?? 0))
+      }
+      return 0
+    })
+  }, [rows, sortCol, sortDir])
+
   const celda = (c: ColKey, r: Incidencia): ReactNode => {
     switch (c) {
       case 'fecha':
@@ -37,6 +67,7 @@ export default function TablaIncidencias({ rows, cols, onVer }: Props) {
         )
       case 'lpn':    return <span className="font-mono text-xs">{r.lpn || '—'}</span>
       case 'cubeta': return <span className="font-mono text-xs">{r.cubeta || '—'}</span>
+      case 'auxiliar': return <span className="text-xs font-semibold">{(r as any).auxiliar_persona || '—'}</span>
       case 'cantidad': return <span className="font-mono text-xs font-semibold tabular-nums">{r.cantidad}</span>
       case 'valorizado': return <span className="font-mono text-xs font-bold tabular-nums">{fmtMoney(r.valorizado)}</span>
       case 'status': return <Badge solid tone={statusTone(r.status)}>{r.status}</Badge>
@@ -70,23 +101,40 @@ export default function TablaIncidencias({ rows, cols, onVer }: Props) {
     }
   }
 
+  const sortIcon = (col: ColKey) => {
+    if (sortCol !== col) return <ArrowUpDown size={12} className="text-muted/50" />
+    if (sortDir === 'asc') return <ArrowUp size={12} className="text-adecco" />
+    return <ArrowDown size={12} className="text-adecco" />
+  }
+
   return (
     <div className="max-h-[62vh] min-h-[240px] overflow-auto rounded-xl border border-line bg-surface shadow-card">
       <table className="w-full min-w-[720px] border-collapse text-sm">
         <thead>
           <tr className="text-left">
-            {cols.map(c => (
-              <th
-                key={c}
-                className={clsx('sticky top-0 z-10 whitespace-nowrap border-b border-line bg-surface2 text-[11px] font-bold uppercase tracking-wider text-muted', padHead)}
-              >
-                {TIT_COLS[c]}
-              </th>
-            ))}
+            {cols.map(c => {
+              const sortable = SORTABLES.includes(c) && cols.includes(c)
+              return (
+                <th
+                  key={c}
+                  onClick={sortable ? () => toggleSort(c) : undefined}
+                  className={clsx(
+                    'sticky top-0 z-10 whitespace-nowrap border-b border-line bg-surface2 text-[11px] font-bold uppercase tracking-wider text-muted',
+                    padHead,
+                    sortable && 'cursor-pointer select-none transition-colors hover:text-ink',
+                  )}
+                >
+                  <span className="inline-flex items-center gap-1">
+                    {TIT_COLS[c]}
+                    {sortable && sortIcon(c)}
+                  </span>
+                </th>
+              )
+            })}
           </tr>
         </thead>
         <tbody>
-          {rows.map(r => (
+          {sorted.map(r => (
             <tr
               key={r.id}
               onClick={onVer ? () => onVer(r.id) : undefined}
@@ -100,7 +148,7 @@ export default function TablaIncidencias({ rows, cols, onVer }: Props) {
               ))}
             </tr>
           ))}
-          {rows.length === 0 && (
+          {sorted.length === 0 && (
             <tr>
               <td colSpan={cols.length} className="px-4 py-14 text-center text-sm text-muted">
                 Filtros sin resultados

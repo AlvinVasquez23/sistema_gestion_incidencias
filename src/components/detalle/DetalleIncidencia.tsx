@@ -32,6 +32,7 @@ export default function DetalleIncidencia({ id, onClose }: { id: string; onClose
 
   const editable = !!user?.esSupervisor && (r.modulo === 'AMR' || r.modulo === 'AUD') && r.status !== 'Cerrado'
   const yaRevisado = r.status === 'Revisado'
+  const esAux = r.modulo === 'AUX'
   const [nombreWms, setNombreWms] = useState('')
   useEffect(() => {
     const cod = form.usuario_picking.trim()
@@ -61,7 +62,17 @@ export default function DetalleIncidencia({ id, onClose }: { id: string; onClose
   }
 
   /* ===== Captura + revisión + cierre (los que tengan valor) ===== */
-  const captura: [string, string][] = [
+  const captura: [string, string][] = esAux ? [
+    ['Fecha', r.fecha], ['Hora', r.hora],
+    ['Auxiliar', r.auxiliar_persona ?? ''],
+    ['LPN', r.lpn ?? ''],
+    ['Tipo', r.tipo],
+    ['Artículo', r.codigo],
+    ['Descripción', r.descripcion],
+    ['Cantidad', String(r.cantidad ?? '')],
+    ['Observación', r.observacion ?? ''],
+    ['Registró', r.usuario_registro ?? ''],
+  ] : [
     ['Área', r.area], ['Fecha', r.fecha], ['Hora', r.hora],
     ['LPN', r.lpn ?? ''], ['Cubeta', r.cubeta ?? ''], ['Estación', r.estacion ?? ''],
     ['Tipo', r.tipo], ['Código', r.codigo], ['Descripción', r.descripcion],
@@ -70,7 +81,7 @@ export default function DetalleIncidencia({ id, onClose }: { id: string; onClose
     [r.modulo === 'AUD' ? 'Auditor' : 'Reportado', r.reportado ?? ''],
     ['Observación', r.observacion ?? ''],
   ]
-  const extra: [string, string][] = [
+  const extra: [string, string][] = esAux ? [] : [
     ['Turno picking', r.turno_picking ?? ''], ['Usuario picking', r.usuario_picking ?? ''],
     ['Nombre WMS', r.nombre_picking ?? (r.usuario_picking ? (WMS_USERS[r.usuario_picking] ?? '') : '')],
     ['Ubicación picking', r.ubicacion_picking ?? ''], ['Fecha mod. WMS', r.fecha_modific_wms ?? ''],
@@ -82,7 +93,9 @@ export default function DetalleIncidencia({ id, onClose }: { id: string; onClose
   ]
   const campos = [...captura, ...extra].filter(([, v]) => v && v.trim() !== '')
 
-  const hist = [
+  const hist = esAux ? [
+    { f: `${r.fecha} ${r.hora}`, t: `Registrado por ${r.usuario_registro || '—'} · Auxiliar: ${r.auxiliar_persona || '—'}` },
+  ] : [
     { f: `${r.fecha} ${r.hora}`, t: `Registrado por ${r.reportado || '—'}` },
     ...(r.fecha_revision ? [{ f: `${r.fecha_revision} ${r.hora_revision}`, t: `Revisado por ${r.usuario_revision || '—'}` }] : []),
     ...(r.hist_mod ? String(r.hist_mod).split('\n').filter(Boolean).map(linea => ({
@@ -105,8 +118,14 @@ export default function DetalleIncidencia({ id, onClose }: { id: string; onClose
           <div>
             <p className="font-mono text-sm font-bold">{r.id}</p>
             <div className="mt-1 flex gap-2">
-              <Badge solid tone={statusTone(r.status)}>{r.status}</Badge>
-              {r.sla && <Badge solid tone={slaTone(r.sla)} pulse={r.sla === 'Crítico'}>{r.sla}</Badge>}
+              {esAux ? (
+                <Badge solid tone={statusTone(r.status)}>Sin seguimiento</Badge>
+              ) : (
+                <>
+                  <Badge solid tone={statusTone(r.status)}>{r.status}</Badge>
+                  {r.sla && <Badge solid tone={slaTone(r.sla)} pulse={r.sla === 'Crítico'}>{r.sla}</Badge>}
+                </>
+              )}
             </div>
           </div>
           <button onClick={onClose} className="ml-auto grid h-9 w-9 place-items-center rounded-lg border border-line text-muted hover:text-ink">
@@ -130,7 +149,7 @@ export default function DetalleIncidencia({ id, onClose }: { id: string; onClose
               {campos.map(([k, v]) => (
                 <div key={k} className="flex gap-3 px-4 py-2 text-sm">
                   <span className="w-32 shrink-0 font-semibold text-muted">{k}</span>
-                  <span className={clsx(['Valorizado', 'Código', 'LPN', 'Fecha revisión', 'Fecha cierre'].includes(k) && 'font-mono text-xs font-semibold')}>{v}</span>
+                  <span className={clsx(['Valorizado', 'Código', 'Artículo', 'LPN', 'Fecha revisión', 'Fecha cierre'].includes(k) && 'font-mono text-xs font-semibold')}>{v}</span>
                 </div>
               ))}
             </div>

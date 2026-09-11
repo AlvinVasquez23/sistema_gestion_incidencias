@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import {
   Home, ClipboardList, Search, LogOut, Sun, Moon,
-  PackageOpen, ClipboardCheck, Forklift, Layers, Lock,
+  PackageOpen, ClipboardCheck, Forklift, Layers, Lock, Users,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../../context/AuthContext'
@@ -12,7 +12,8 @@ import DetalleIncidencia from '../detalle/DetalleIncidencia'
 import { useTheme } from '../../context/ThemeContext'
 import InstalarApp from '../pwa/InstalarApp'
 
-const RUTA_MODULO: Record<string, string> = { AMR: 'amr', AUD: 'aud', API: 'api', AFR: 'afr' }
+
+const RUTA_MODULO: Record<string, string> = { AMR: 'amr', AUD: 'aud', API: 'api', AFR: 'afr', AUX: 'aux' }
 
 
 /* Pill de status local (independiente del Badge del design system) */
@@ -96,9 +97,10 @@ export function CapturaHome() {
     { key: 'AUD', to: '/captura/aud', icon: ClipboardCheck, t: 'Auditorías Reaba', d: 'Reabasto' },
     { key: 'API', to: '/captura/api', icon: Forklift, t: 'Incidencias de Apilador', d: 'Decanting' },
     { key: 'AFR', to: '/captura/afr', icon: Layers, t: 'Incidencias de AFRAME', d: 'AFRAME' },
+    { key: 'AUX', to: '/captura/aux', icon: Users, t: 'Incidencias de personal', d: 'Decanting' },  
   ]
   const POR_ROL: Record<string, string[]> = {
-    decanting: ['AMR', 'API'], reabasto: ['AUD'], inventarios: ['API'], aframe: ['AFR'],
+    decanting: ['AMR', 'API', 'AUX'], reabasto: ['AUD'], inventarios: ['API'], aframe: ['AFR'],    
   }
   const permitidos = POR_ROL[(user?.rol ?? '').split('_')[0]] ?? TODOS.map(t => t.key)
   return (
@@ -170,7 +172,7 @@ export function MisCapturas() {
                 <p className="mt-1 truncate text-xs font-semibold">{r.descripcion || r.codigo || r.cubeta || r.tipo}</p>
                 <p className="mt-0.5 font-mono text-[10px] text-muted">{r.fecha} {r.hora} · {r.area} · {r.tipo}</p>
               </button>
-              {r.status === 'Pendiente' && esMia(r) && (
+              {r.modulo !== 'AUX' && r.status === 'Pendiente' && esMia(r) && (
                 <button
                   onClick={() => nav(`/captura/${RUTA_MODULO[r.modulo] ?? 'amr'}?edit=${r.id}`)}
                   className="mt-2 h-8 w-full rounded-lg border border-warn/40 bg-warn/10 text-[11px] font-bold uppercase tracking-wider text-warn transition hover:bg-warn/20"
