@@ -3,7 +3,7 @@ import { USUARIOS } from '../data/mock'
 import { apiActiva, loginApi } from '../services/api'
 
 export interface SessionUser {
-  usuario: string; nombre: string; rol: string; esSupervisor: boolean
+  usuario: string; nombre: string; rol: string; esSupervisor: boolean; esAdmin: boolean
 }
 
 interface AuthCtx {
@@ -40,7 +40,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           usuario: r.usuario ?? u,
           nombre: r.nombre ?? u,
           rol: r.rol ?? '',
-          esSupervisor: !!r.esSupervisor,
+          esSupervisor: !!r.esSupervisor, esAdmin: !!r.esAdmin,
         }
         localStorage.setItem('ims_token', r.token ?? ses.usuario)
         localStorage.setItem('ims_session', JSON.stringify(ses))
@@ -52,7 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const found = USUARIOS.find(x => x.usuario === u.trim().toLowerCase() && x.password === p)
     if (!found) return null
     const ses: SessionUser = {
-      usuario: found.usuario, nombre: found.nombre, rol: found.rol, esSupervisor: found.esSupervisor,
+      usuario: found.usuario, nombre: found.nombre, rol: found.rol, esSupervisor: found.esSupervisor, esAdmin: false,
     }
     localStorage.setItem('ims_token', ses.usuario)
     localStorage.setItem('ims_session', JSON.stringify(ses))

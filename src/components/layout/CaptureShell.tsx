@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import {
   Home, ClipboardList, Search, LogOut, Sun, Moon,
-  PackageOpen, ClipboardCheck, Forklift, Layers, Lock, Users,
+  PackageOpen, ClipboardCheck, Forklift, Layers, Lock, Users, LayoutDashboard,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../../context/AuthContext'
@@ -44,6 +44,15 @@ export default function CaptureShell() {
           <p className="truncate text-sm font-extrabold leading-tight">Registro de incidencias</p>
           <p className="truncate text-[10px] font-semibold uppercase tracking-wider text-muted">{user?.nombre}</p>
         </div>
+        {user?.esAdmin && (
+          <button
+            onClick={() => nav('/')}
+            className="flex h-9 items-center gap-2 rounded-lg border border-adecco/40 bg-adecco/10 px-2.5 text-xs font-bold text-adecco transition-colors hover:bg-adecco/20"
+          >
+            <LayoutDashboard size={15} /> Módulo consulta
+          </button>
+        )}
+
         <InstalarApp />
         <button
           onClick={toggle}
@@ -100,7 +109,8 @@ export function CapturaHome() {
     { key: 'AUX', to: '/captura/aux', icon: Users, t: 'Incidencias de personal', d: 'Decanting' },  
   ]
   const POR_ROL: Record<string, string[]> = {
-    decanting: ['AMR', 'API', 'AUX'], reabasto: ['AUD'], inventarios: ['API'], aframe: ['AFR'],    
+    decanting: ['AMR', 'API', 'AUX'], reabasto: ['AUD'], inventarios: ['API'], aframe: ['AFR'],
+    sistema: ['AMR', 'AUD', 'API', 'AFR', 'AUX'],  
   }
   const permitidos = POR_ROL[(user?.rol ?? '').split('_')[0]] ?? TODOS.map(t => t.key)
   return (

@@ -60,6 +60,6 @@ export async function loginApi(usuario: string, password: string) {
   return (await res.json()) as {
     ok: boolean
     mensaje?: string
-    usuario?: string; nombre?: string; rol?: string; esSupervisor?: boolean; token?: string
+    usuario?: string; nombre?: string; rol?: string; esSupervisor?: boolean; esAdmin?: boolean; token?: string
   }
 }

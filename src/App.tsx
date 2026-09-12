@@ -25,7 +25,7 @@ function SoloSupervisor({ children }: { children: ReactElement }) {
 function RutaCaptura({ children }: { children: ReactElement }) {
   const { user } = useAuth()
   if (!user) return <Navigate to="/login" replace />
-  if (user.esSupervisor) return <Navigate to="/" replace />
+  if (user.esSupervisor && !user.esAdmin) return <Navigate to="/" replace />
   return children
 }
 

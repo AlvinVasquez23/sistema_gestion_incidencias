@@ -3,7 +3,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Inbox, Bot, ClipboardCheck, Forklift, Layers,
   Sun, Moon, LogOut, Bell, Settings, Menu, X, ChevronsLeft, ChevronsRight, RefreshCw,
-  CalendarDays, Radio, Users,
+  CalendarDays, Radio, Users, ClipboardPlus,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useTheme } from '../../context/ThemeContext'
@@ -96,6 +96,19 @@ export default function AppShell() {
 
         {/* Pie: ajustes + tema + salir + footer (compacto) */}
         <div className={clsx('space-y-0.5 border-t border-line px-3 pb-2.5 pt-2.5', collapsed && 'px-2')}>
+          {user?.esAdmin && (
+            <NavLink
+              to="/captura"
+              className={clsx(
+                'flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-semibold text-adecco transition-colors hover:bg-adecco/10',
+                collapsed && 'justify-center px-0',
+              )}
+            >
+              <ClipboardPlus size={18} className="shrink-0" />
+              {!collapsed && <span>Módulo registro</span>}
+            </NavLink>
+          )}          
+          
           <button
             onClick={() => setAjustes(true)}
             title="Ajustes"
@@ -252,6 +265,12 @@ export default function AppShell() {
             <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-line" />
             {sheet === 'modulos' ? (
               <div className="grid grid-cols-2 gap-2">
+                {user?.esAdmin && (
+                  <NavLink to="/captura" onClick={() => setSheet(null)}
+                    className="flex items-center gap-3 rounded-xl border border-adecco/40 bg-adecco/10 p-3 text-sm font-semibold text-adecco">
+                    <ClipboardPlus size={18} /> Módulo registro
+                  </NavLink>
+                )}                
                 {NAV.slice(2).map(n => (
                   <NavLink key={n.to} to={n.to} onClick={() => setSheet(null)}
                     className="flex items-center gap-3 rounded-xl border border-line bg-surface2 p-3 text-sm font-semibold">

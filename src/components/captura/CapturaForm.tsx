@@ -15,6 +15,7 @@ const label = 'mb-1 block text-[11px] font-bold uppercase tracking-wider text-mu
 const ESTACIONES = Array.from({ length: 22 }, (_, i) => `D${String(i + 1).padStart(2, '0')}`)
 const MODULOS_POR_ROL: Record<string, string[]> = {
   decanting: ['AMR', 'API', 'AUX'], reabasto: ['AUD'], inventarios: ['API'], aframe: ['AFR'],
+  sistema: ['AMR', 'AUD', 'API', 'AFR', 'AUX'],
 }
 
 interface Cfg {
