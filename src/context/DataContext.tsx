@@ -142,7 +142,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setTimeout(() => void refrescarModulo(modulo), 500)
       }
     }
-  } 
+  }
   /* ===== REGISTRAR NUEVA CAPTURA: optimista + refetch del módulo ===== */
   const registrar = async (modulo: string, datos: Record<string, unknown>) => {
     if (!apiActiva()) {
@@ -175,7 +175,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   /* ===== CORREGIR CAPTURA: optimista + refetch del módulo ===== */
   const corregir = async (modulo: string, id: string, datos: Record<string, unknown>) => {
-    const t = ahora()
+
     // Optimismo: actualizar al instante con los nuevos datos
     setRows(rs => rs.map(r => r.id === id ? {
       ...r,
