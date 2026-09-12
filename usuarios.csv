@@ -1,0 +1,18 @@
+usuario,password,nombre,rol,activo
+mcruz,46127246,Maritza Cruz Cruz,decanting_operario,TRUE
+abaquerizo,70024699,Anthony Baquerizo Contreras,decanting_supervisor,TRUE
+reabasto01,reabasto01,Auxilliar de reabasto,reabasto_operario,TRUE
+reabasto02,reabasto02,Supervisor de reabasto,reabasto_supervisor,TRUE
+inventarios01,inventarios01,Auxiliar de inventarios,inventarios_operario,TRUE
+inventarios02,inventarios02,Supervisor de inventarios,inventarios_supervisor,TRUE
+ahuaman,45430428,Alwin Huaman Vasquez,sistema_admin,TRUE
+aframe01,aframe01,Auxiliar de aframe,aframe_operario,TRUE
+jherrera,44126036,Jaime Herrera Cabanillas,aframe_supervisor,TRUE
+xzurita,60409834,Xiomara Zurita Lermo,sistema_admin,TRUE
+rfernandez,80612599,Raul Fernandez Galvez,decanting_supervisor,TRUE
+jcurisinche,75398170,Jose Curisinche Mantari,inventarios_supervisor,TRUE
+ncango,60458390,Nelso Cango Pangalima,decanting_operario,TRUE
+ajimenez,75208613,Arnold Jimenez Garcia,decanting_operario,TRUE
+amacavilca,72522095,Andrea Macavilca Ramirez,decanting_operario,TRUE
+jgarcia,60856400,Jean Carlo Garcia Ramirez,aframe_supervisor,TRUE
+ecorpus,72223620,Erick Corpus Anacleto,sistema_admin,TRUE
