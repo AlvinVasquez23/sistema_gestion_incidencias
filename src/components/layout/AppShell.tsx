@@ -96,19 +96,7 @@ export default function AppShell() {
 
         {/* Pie: ajustes + tema + salir + footer (compacto) */}
         <div className={clsx('space-y-0.5 border-t border-line px-3 pb-2.5 pt-2.5', collapsed && 'px-2')}>
-          {user?.esAdmin && (
-            <NavLink
-              to="/captura"
-              className={clsx(
-                'flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-semibold text-adecco transition-colors hover:bg-adecco/10',
-                collapsed && 'justify-center px-0',
-              )}
-            >
-              <ClipboardPlus size={18} className="shrink-0" />
-              {!collapsed && <span>Módulo registro</span>}
-            </NavLink>
-          )}          
-          
+        
           <button
             onClick={() => setAjustes(true)}
             title="Ajustes"
@@ -197,6 +185,16 @@ export default function AppShell() {
             <span className="hidden text-xs font-bold lg:inline">Notificaciones</span>
             <span className="absolute right-1.5 top-1.5 h-2 w-2 " />
           </button>
+          {user?.esAdmin && (
+            <button
+              onClick={() => nav('/captura')}
+              title="Módulo registro"
+              className="flex h-9 items-center gap-2 rounded-lg border border-adecco/40 bg-adecco/10 px-2.5 text-adecco transition-colors hover:bg-adecco/20"
+            >
+              <ClipboardPlus size={16} />
+              <span className="hidden text-xs font-bold lg:inline">Módulo registro</span>
+            </button>
+          )}          
           <button onClick={() => setSheet('ajustes')}
             className="ml-1 grid h-9 w-9 place-items-center rounded-full bg-surface2 font-mono text-xs font-bold uppercase lg:hidden">
             {user?.nombre.slice(0, 2)}

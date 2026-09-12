@@ -44,30 +44,33 @@ export default function CaptureShell() {
           <p className="truncate text-sm font-extrabold leading-tight">Registro de incidencias</p>
           <p className="truncate text-[10px] font-semibold uppercase tracking-wider text-muted">{user?.nombre}</p>
         </div>
-        {user?.esAdmin && (
+        <div className="ml-auto flex items-center gap-1.5">
+          <InstalarApp />
+          {user?.esAdmin && (
+            <button
+              onClick={() => nav('/')}
+              title="Módulo consulta"
+              className="flex h-9 items-center gap-2 rounded-lg border border-adecco/40 bg-adecco/10 px-2.5 text-adecco transition-colors hover:bg-adecco/20"
+            >
+              <LayoutDashboard size={16} />
+              <span className="hidden text-xs font-bold sm:inline">Módulo consulta</span>
+            </button>
+          )}
           <button
-            onClick={() => nav('/')}
-            className="flex h-9 items-center gap-2 rounded-lg border border-adecco/40 bg-adecco/10 px-2.5 text-xs font-bold text-adecco transition-colors hover:bg-adecco/20"
+            onClick={toggle}
+            title="Cambiar tema"
+            className="grid h-9 w-9 place-items-center rounded-lg border border-line text-muted transition-colors hover:bg-surface2 hover:text-ink"
           >
-            <LayoutDashboard size={15} /> Módulo consulta
+            {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
           </button>
-        )}
-
-        <InstalarApp />
-        <button
-          onClick={toggle}
-          title="Cambiar tema"
-          className="ml-auto grid h-9 w-9 place-items-center rounded-lg border border-line text-muted transition-colors hover:bg-surface2 hover:text-ink"
-        >
-          {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
-        </button>        
-        <button
-          onClick={() => { logout(); nav('/login') }}
-          title="Cerrar sesión"
-          className="grid h-9 w-9 place-items-center rounded-lg border border-line text-muted transition-colors hover:bg-surface2 hover:text-ink"
-        >
-          <LogOut size={16} />
-        </button>
+          <button
+            onClick={() => { logout(); nav('/login') }}
+            title="Cerrar sesión"
+            className="grid h-9 w-9 place-items-center rounded-lg border border-line text-muted transition-colors hover:bg-surface2 hover:text-ink"
+          >
+            <LogOut size={16} />
+          </button>
+        </div>  
       </header>
 
       <main className="flex-1 px-4 pb-24 pt-4">

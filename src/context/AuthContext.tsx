@@ -16,7 +16,12 @@ const Ctx = createContext<AuthCtx>(null!)
 function cargarSesion(): SessionUser | null {
   try {
     const raw = localStorage.getItem('ims_session')
-    return raw ? (JSON.parse(raw) as SessionUser) : null
+    if (!raw) return null
+    const s = JSON.parse(raw) as SessionUser
+    // Normaliza esAdmin/esSupervisor desde el rol (arregla sesiones viejas)
+    s.esAdmin = s.esAdmin || /sistema_admin/i.test(s.rol || '')
+    s.esSupervisor = s.esSupervisor || /sistema_admin/i.test(s.rol || '')
+    return s
   } catch {
     return null
   }
@@ -40,7 +45,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           usuario: r.usuario ?? u,
           nombre: r.nombre ?? u,
           rol: r.rol ?? '',
-          esSupervisor: !!r.esSupervisor, esAdmin: !!r.esAdmin,
+          esSupervisor: !!r.esSupervisor || /sistema_admin/i.test(r.rol ?? ''),
+          esAdmin: !!r.esAdmin || /sistema_admin/i.test(r.rol ?? ''),
         }
         localStorage.setItem('ims_token', r.token ?? ses.usuario)
         localStorage.setItem('ims_session', JSON.stringify(ses))
@@ -52,7 +58,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const found = USUARIOS.find(x => x.usuario === u.trim().toLowerCase() && x.password === p)
     if (!found) return null
     const ses: SessionUser = {
-      usuario: found.usuario, nombre: found.nombre, rol: found.rol, esSupervisor: found.esSupervisor, esAdmin: false,
+      usuario: found.usuario, nombre: found.nombre, rol: found.rol,
+      esSupervisor: found.esSupervisor || /sistema_admin/i.test(found.rol),
+      esAdmin: /sistema_admin/i.test(found.rol),
     }
     localStorage.setItem('ims_token', ses.usuario)
     localStorage.setItem('ims_session', JSON.stringify(ses))

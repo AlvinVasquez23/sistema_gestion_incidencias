@@ -1,3 +1,4 @@
+import type { Incidencia } from '../data/mock'
 /* ===== Capa API contra Apps Script (Paso 5) =====
    Apps Script no soporta preflight CORS con Content-Type json,
    por eso el POST viaja como text/plain y el JSON va en el body.
@@ -26,9 +27,9 @@ export const api = {
     llamar<{ usuario: string; nombre: string; rol: string; esSupervisor: boolean; token: string }>('login', { usuario, password }),
   incidencias: (token: string) => llamar<unknown[]>('incidencias', { token }),
   guardarRevision: (token: string, id: string, payload: unknown) =>
-    llamar<unknown>('guardar_revision', { token, id, payload }),
+    llamar<Incidencia>('guardar_revision', { token, id, payload }),
   cerrar: (token: string, id: string, causa: string) =>
-    llamar<unknown>('cerrar', { token, id, causa }),
+    llamar<Incidencia>('cerrar', { token, id, causa }),
   nombreWms: (token: string, codigo: string) => llamar<string>('nombre_wms', { token, codigo }),
   cambiarPassword: (token: string, actual: string, nueva: string) =>
     llamar<unknown>('cambiar_password', { token, actual, nueva }),
@@ -45,6 +46,9 @@ export const api = {
   registrarAux: (token: string, datos: Record<string, unknown>) =>
     llamar<{ id: string }>('registrar_aux', { token, datos }),
   tiposAux: (token: string) => llamar<string[]>('tipos_aux', { token }),  
+
+  obtenerModulo: (token: string, modulo: string) =>
+    llamar<Incidencia[]>('obtener_modulo', { token, modulo }),  
   
 }
 
