@@ -113,7 +113,7 @@ export default function CapturaForm({ modulo }: { modulo: string }) {
   const [params] = useSearchParams()
   const editId = params.get('edit')
   const { user } = useAuth()
-  const { rows, registrar, corregir, refrescarModulo } = useData()
+  const { rows, registrar, corregir, refrescarModulo, registrarAux } = useData()
   const [f, setF] = useState({ ...VACIO })
   const [desc, setDesc] = useState('')
   const [precio, setPrecio] = useState<number | null>(null)
@@ -208,18 +208,18 @@ export default function CapturaForm({ modulo }: { modulo: string }) {
       const tok = localStorage.getItem('ims_token') ?? user?.usuario ?? ''
       if (modulo === 'AUX') {
         // AUX usa su propia acción pero también va por el DataContext para mantener consistencia
-        const r = await api.registrarAux(tok, {
+        const id = await registrarAux({
           auxiliar: auxiliarFinal || f.auxiliar, lpn: f.lpn, tipo: f.tipo,
           articulo: f.codigo, cantidad: cant, observacion: f.observacion,
         })
-        setExito(r.id)
+        setExito(id)
         await refrescarModulo('AUX')
       } else if (editId) {
         await corregir(modulo, editId, datos)
         setExito(editId)
       } else {
-        const r = await registrar(modulo, datos)
-        setExito(r.id)
+        const id = await registrar(modulo, datos)
+        setExito(id)
       }
     } catch (e) {
       setMsg({ tipo: 'error', texto: e instanceof Error ? e.message : 'Error al guardar' })
