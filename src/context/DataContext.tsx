@@ -1,38 +1,40 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
+/* src/context/DataContext.tsx — Estado global de incidencias (Worker Cloudflare + Turso) */
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
+import { api, apiActiva } from '../services/api'
 import { INCIDENCIAS, type Incidencia } from '../data/mock'
 import { useAuth } from './AuthContext'
-import { api, apiActiva } from '../services/api'
 
 export interface RevisionPayload {
-  turno_picking: string; usuario_picking: string; nombre_picking?: string
-  ubicacion_picking: string; fecha_modific_wms: string; ubicacion_hallazgo: string; obs_revision: string
+  turno_picking?: string
+  usuario_picking?: string
+  ubicacion_picking?: string
+  fecha_modific_wms?: string
+  ubicacion_hallazgo?: string
+  obs_revision?: string
+  /** Legacy de la UI: en Turso el nombre WMS se deriva por JOIN; el worker lo ignora */
+  nombre_picking?: string
 }
 
 interface DataCtx {
   rows: Incidencia[]
-  fuente: 'mock' | 'apps-script'
   cargando: boolean
   error: string | null
+  ultimaActualizacion: Date | null
+  fuente: 'worker' | 'mock'
+  usarMockManual: () => void
   recargar: () => Promise<void>
   refrescarModulo: (modulo: string) => Promise<void>
-  guardarRevision: (id: string, p: RevisionPayload) => Promise<void>
+  guardarRevision: (id: string, payload: RevisionPayload) => Promise<void>
   cerrarIncidencia: (id: string, causa: string) => Promise<void>
-  registrar: (modulo: string, datos: Record<string, unknown>) => Promise<{ id: string }>
+  cerrar: (id: string, causa: string) => Promise<void>
   corregir: (modulo: string, id: string, datos: Record<string, unknown>) => Promise<void>
-  usarMockManual: () => void
+  registrar: (modulo: string, datos: Record<string, unknown>) => Promise<string>
+  registrarAux: (datos: Record<string, unknown>) => Promise<string>
 }
+
 const Ctx = createContext<DataCtx>(null!)
 
-const ahora = () => {
-  const d = new Date()
-  return {
-    f: d.toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' }),
-    h: d.toLocaleTimeString('es-PE', { hour12: false }),
-  }
-}
-
-/* Detecta el módulo a partir del prefijo del id */
-const moduloDeId = (id: string): string => {
+const MODULO_DE_ID = (id: string): string => {
   const s = String(id || '')
   if (s.startsWith('AUD')) return 'AUD'
   if (s.startsWith('API')) return 'API'
@@ -41,174 +43,174 @@ const moduloDeId = (id: string): string => {
   return 'AMR'
 }
 
+/* Hora de Perú (UTC-5) para updates optimistas */
+const ahoraPE = () => {
+  const iso = new Date(Date.now() - 5 * 3600 * 1000).toISOString()
+  return { fecha: iso.slice(0, 10).split('-').reverse().join('/'), hora: iso.slice(11, 19) }
+}
+
+const POLL_MS = 15_000
+
 export function DataProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()
+  const [mockManual, setMockManual] = useState(false)
   const [rows, setRows] = useState<Incidencia[]>(() => (apiActiva() ? [] : INCIDENCIAS))
-  const [fuente, setFuente] = useState<'mock' | 'apps-script'>('mock')
-  const [cargando, setCargando] = useState(false)
+  const [cargando, setCargando] = useState(() => apiActiva())
   const [error, setError] = useState<string | null>(null)
+  const [ultimaActualizacion, setUltimaActualizacion] = useState<Date | null>(null)
+  const enVuelo = useRef(false)
 
-  const token = () => localStorage.getItem('ims_token') ?? user?.usuario ?? ''
+  const fuente: 'worker' | 'mock' = mockManual || !apiActiva() ? 'mock' : 'worker'
+  const token = () => localStorage.getItem('ims_token') ?? ''
 
-  /* Carga completa (login, botón actualizar manual, fallback) */
+  /* ===== Carga total (5 módulos) ===== */
   const recargar = useCallback(async () => {
-    if (!apiActiva()) {
-      setFuente('mock'); setRows(INCIDENCIAS); return
-    }
-    setCargando(true); setError(null)
+    if (!apiActiva() || mockManual || !token()) return
+    if (enVuelo.current) return
+    enVuelo.current = true
     try {
-      const data = await api.incidencias(token()) as Incidencia[]
+      const data = await api.incidencias(token())
       setRows(data)
-      setFuente('apps-script')
+      setUltimaActualizacion(new Date())
+      setError(null)
     } catch (e) {
-      console.error('[DataContext] API falló:', e)
-      setError(e instanceof Error ? e.message : 'Error de conexión')
-      setFuente('mock')
-      setRows([])
+      setError(e instanceof Error ? e.message : 'Error de sincronización')
     } finally {
+      enVuelo.current = false
       setCargando(false)
     }
-  }, [])
+  }, [mockManual])
 
-  /* Refetch de UN solo módulo y fusión en rows (sin tocar los demás) */
+  /* ===== Refetch de un solo módulo (tras mutaciones) ===== */
   const refrescarModulo = useCallback(async (modulo: string) => {
-    if (!apiActiva()) return
+    if (!apiActiva() || mockManual || !token()) return
     try {
-      const nuevas = (await api.obtenerModulo(token(), modulo)) as Incidencia[]
-      setRows(rs => {
-        const otras = rs.filter(r => r.modulo !== modulo)
-        return [...otras, ...nuevas].sort((a, b) => (b.ts ?? 0) - (a.ts ?? 0))
-      })
-    } catch (e) {
-      console.error('[DataContext] refrescarModulo falló:', e)
-    }
+      const data = await api.obtenerModulo(token(), modulo)
+      setRows(rs => [...rs.filter(r => r.modulo !== modulo), ...data]
+        .sort((a, b) => (b.ts || 0) - (a.ts || 0)))
+      setUltimaActualizacion(new Date())
+    } catch { /* el polling lo retoma en el siguiente tick */ }
+  }, [mockManual])
+
+  /* ===== Modo demo legacy (botón de la top bar): congela datos mock ===== */
+  const usarMockManual = useCallback(() => {
+    setMockManual(true)
+    setRows(INCIDENCIAS)
+    setCargando(false)
+    setError(null)
   }, [])
 
-  useEffect(() => { if (user) void recargar() }, [user, recargar])
+  /* ===== Carga inicial al autenticar / limpieza al salir ===== */
+  useEffect(() => {
+    if (user) {
+      setCargando(true)
+      void recargar()
+    } else {
+      setRows(apiActiva() ? [] : INCIDENCIAS)
+      setUltimaActualizacion(null)
+      setError(null)
+      setCargando(false)  
+    }
+  }, [user, recargar])
 
-  /* ===== GUARDAR REVISIÓN: optimista + refetch incremental ===== */
-  /* ===== GUARDAR REVISIÓN: optimismo + confirmación con fila del servidor ===== */
-  const guardarRevision = async (id: string, p: RevisionPayload) => {
-    const t = ahora()
-    const modulo = moduloDeId(id)
-    const usuario = user?.usuario ?? 'mock'
-    // Optimismo: actualizar al instante
-    setRows(rs => rs.map(r => r.id === id ? {
-      ...r, ...p,
-      status: 'Revisado' as const,
-      usuario_revision: usuario,
-      fecha_revision: t.f,
-      hora_revision: t.h,
-    } : r))
-    if (apiActiva()) {
-      try {
-        const filaNorm = await api.guardarRevision(token(), id, p)
-        if (filaNorm) {
-          // Confirmación con la fila real del servidor
-          setRows(rs => rs.map(r => r.id === id ? filaNorm : r))
-        }
-      } catch (e) {
-        console.error('[DataContext] guardarRevision falló:', e)
-        // Fallback: refetch después de pequeño delay
-        setTimeout(() => void refrescarModulo(modulo), 500)
+  /* ===== Polling 15 s: sincroniza móvil ↔ desktop sin F5 ===== */
+  useEffect(() => {
+    if (!user || !apiActiva() || mockManual) return
+    let interval: ReturnType<typeof setInterval> | null = setInterval(() => void recargar(), POLL_MS)
+    const onVisibility = () => {
+      if (interval) { clearInterval(interval); interval = null }
+      if (!document.hidden) {
+        void recargar()
+        interval = setInterval(() => void recargar(), POLL_MS)
       }
     }
-  }
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => {
+      if (interval) clearInterval(interval)
+      document.removeEventListener('visibilitychange', onVisibility)
+    }
+  }, [user, recargar, mockManual])
 
-  /* ===== CERRAR INCIDENCIA: optimismo + confirmación con fila del servidor ===== */
-  const cerrarIncidencia = async (id: string, causa: string) => {
-    const t = ahora()
-    const modulo = moduloDeId(id)
-    const usuario = user?.usuario ?? 'mock'
-    // Optimismo: cerrar al instante
+  /* ===== Revisar (optimista + confirmación del servidor) ===== */
+  const guardarRevision = useCallback(async (id: string, payload: RevisionPayload) => {
+    if (!apiActiva()) throw new Error('API no configurada (falta VITE_WORKER_URL)')
+    const modulo = MODULO_DE_ID(id)
+    const t = ahoraPE()
+    setRows(rs => rs.map(r => r.id === id ? {
+      ...r,
+      status: 'Revisado' as const,
+      fecha_revision: t.fecha,
+      hora_revision: t.hora,
+      usuario_revision: user?.usuario ?? '',
+      turno_picking: payload.turno_picking ?? r.turno_picking,
+      usuario_picking: payload.usuario_picking ?? r.usuario_picking,
+      ubicacion_picking: payload.ubicacion_picking ?? r.ubicacion_picking,
+      fecha_modific_wms: payload.fecha_modific_wms ?? r.fecha_modific_wms,
+      ubicacion_hallazgo: payload.ubicacion_hallazgo ?? r.ubicacion_hallazgo,
+      obs_revision: payload.obs_revision ?? r.obs_revision,
+    } : r))
+    const fila = await api.guardarRevision(token(), id, payload)
+    setRows(rs => rs.map(r => r.id === id ? fila : r))
+    void refrescarModulo(modulo)
+  }, [user, refrescarModulo])
+
+  /* ===== Cerrar (optimista + confirmación; el SLA lo trae el refetch) ===== */
+  const cerrarIncidencia = useCallback(async (id: string, causa: string) => {
+    if (!apiActiva()) throw new Error('API no configurada (falta VITE_WORKER_URL)')
+    const modulo = MODULO_DE_ID(id)
+    const t = ahoraPE()
     setRows(rs => rs.map(r => r.id === id ? {
       ...r,
       status: 'Cerrado' as const,
       causa_raiz: causa,
-      usuario_cierre: usuario,
-      fecha_cierre: t.f,
-      hora_cierre: t.h,
+      usuario_cierre: user?.usuario ?? '',
+      fecha_cierre: t.fecha,
+      hora_cierre: t.hora,
     } : r))
-    if (apiActiva()) {
-      try {
-        const filaNorm = await api.cerrar(token(), id, causa)
-        if (filaNorm) {
-          // Confirmación con la fila real del servidor
-          setRows(rs => rs.map(r => r.id === id ? filaNorm : r))
-        }
-      } catch (e) {
-        console.error('[DataContext] cerrarIncidencia falló:', e)
-        // Fallback: refetch después de pequeño delay
-        setTimeout(() => void refrescarModulo(modulo), 500)
-      }
-    }
-  }
-  /* ===== REGISTRAR NUEVA CAPTURA: optimista + refetch del módulo ===== */
-  const registrar = async (modulo: string, datos: Record<string, unknown>) => {
-    if (!apiActiva()) {
-      // Mock: crear fila local
-      const t = ahora()
-      const mockRow: Incidencia = {
-        id: `${modulo}-mock-${Date.now()}`,
-        modulo,
-        fecha: t.f, hora: t.h, ts: Date.now(),
-        area: String(datos.area || ''),
-        tipo: String(datos.tipo || ''),
-        lpn: String(datos.lpn || ''), cubeta: String(datos.cubeta || ''),
-        estacion: String(datos.estacion || ''),
-        codigo: String(datos.codigo || ''), descripcion: '',
-        lote: String(datos.lote || ''),
-        cantidad: Number(datos.cantidad) || 0, um: 'Unidad',
-        observacion: String(datos.observacion || ''),
-        reportado: String(datos.reportado || user?.nombre || ''),
-        auxiliar_persona: String(datos.reportado || user?.nombre || ''),
-        status: 'Pendiente', sla: 'Normal', valorizado: 0,
-        usuario_registro: user?.usuario ?? 'mock',
-      } as Incidencia
-      setRows(rs => [mockRow, ...rs])
-      return { id: mockRow.id }
-    }
-    const { id } = await api.registrar(token(), modulo, datos)
-    await refrescarModulo(modulo)
-    return { id }
-  }
+    const fila = await api.cerrar(token(), id, causa)
+    setRows(rs => rs.map(r => r.id === id ? fila : r))
+    void refrescarModulo(modulo)
+  }, [user, refrescarModulo])
 
-  /* ===== CORREGIR CAPTURA: optimista + refetch del módulo ===== */
-  const corregir = async (modulo: string, id: string, datos: Record<string, unknown>) => {
-
-    // Optimismo: actualizar al instante con los nuevos datos
+  /* ===== Corregir captura pendiente (optimista + refetch) ===== */
+  const corregir = useCallback(async (modulo: string, id: string, datos: Record<string, unknown>) => {
+    if (!apiActiva()) throw new Error('API no configurada (falta VITE_WORKER_URL)')
     setRows(rs => rs.map(r => r.id === id ? {
       ...r,
-      tipo: String(datos.tipo || r.tipo),
-      lpn: String(datos.lpn || r.lpn),
-      cubeta: String(datos.cubeta || r.cubeta),
-      estacion: String(datos.estacion || r.estacion),
-      codigo: String(datos.codigo || r.codigo),
-      lote: String(datos.lote || r.lote),
-      cantidad: Number(datos.cantidad) || r.cantidad,
-      observacion: String(datos.observacion ?? r.observacion ?? ''),
-      reportado: String(datos.reportado || r.reportado || ''),
+      tipo: String(datos.tipo ?? r.tipo),
+      lpn: String(datos.lpn ?? r.lpn),
+      cubeta: String(datos.cubeta ?? r.cubeta),
+      codigo: String(datos.codigo ?? r.codigo),
+      lote: String(datos.lote ?? r.lote),
+      cantidad: Number(datos.cantidad ?? r.cantidad),
+      observacion: String(datos.observacion ?? r.observacion),
     } : r))
-    if (apiActiva()) {
-      try {
-        await api.corregir(token(), modulo, id, datos)
-        await refrescarModulo(modulo)
-      } catch (e) {
-        console.error('[DataContext] corregir falló:', e)
-        throw e
-      }
-    }
-  }
+    await api.corregir(token(), modulo, id, datos)
+    void refrescarModulo(modulo)
+  }, [refrescarModulo])
 
-  const usarMockManual = () => { setRows(INCIDENCIAS); setFuente('mock'); setError(null) }
+  /* ===== Registrar captura (AMR/AUD/API/AFR) ===== */
+  const registrar = useCallback(async (modulo: string, datos: Record<string, unknown>) => {
+    if (!apiActiva()) throw new Error('API no configurada (falta VITE_WORKER_URL)')
+    const { id } = await api.registrar(token(), modulo, datos)
+    await refrescarModulo(modulo)
+    return id
+  }, [refrescarModulo])
+
+  /* ===== Registrar captura AUX ===== */
+  const registrarAux = useCallback(async (datos: Record<string, unknown>) => {
+    if (!apiActiva()) throw new Error('API no configurada (falta VITE_WORKER_URL)')
+    const { id } = await api.registrarAux(token(), datos)
+    await refrescarModulo('AUX')
+    return id
+  }, [refrescarModulo])
 
   return (
     <Ctx.Provider value={{
-      rows, fuente, cargando, error,
+      rows, cargando, error, ultimaActualizacion, fuente, usarMockManual,
       recargar, refrescarModulo,
-      guardarRevision, cerrarIncidencia,
-      registrar, corregir,
-      usarMockManual,
+      guardarRevision, cerrarIncidencia, cerrar: cerrarIncidencia,
+      corregir, registrar, registrarAux,
     }}>
       {children}
     </Ctx.Provider>

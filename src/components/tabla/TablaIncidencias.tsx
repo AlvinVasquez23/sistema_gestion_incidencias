@@ -19,7 +19,7 @@ const SORTABLES: ColKey[] = ['fecha', 'valorizado', 'cantidad']
 export default function TablaIncidencias({ rows, cols, onVer }: Props) {
   const { prefs } = useSettings()
   const padHead = prefs.densidad === 'compacta' ? 'px-3 py-2' : 'px-4 py-3'
-  const padCelda = prefs.densidad === 'compacta' ? 'px-3 py-1.5' : 'px-4 py-3'
+  const padCelda = prefs.densidad === 'compacta' ? 'px-3 py-2' : 'px-4 py-4'
 
   const [sortCol, setSortCol] = useState<ColKey | null>(null)
   const [sortDir, setSortDir] = useState<SortDir>(null)
@@ -119,7 +119,7 @@ export default function TablaIncidencias({ rows, cols, onVer }: Props) {
                   key={c}
                   onClick={sortable ? () => toggleSort(c) : undefined}
                   className={clsx(
-                    'sticky top-0 z-10 whitespace-nowrap border-b border-line bg-surface2 text-[11px] font-bold uppercase tracking-wider text-muted',
+                    'sticky top-0 z-10 whitespace-nowrap border-b-2 border-line bg-surface2 text-[11px] font-bold uppercase tracking-wider text-muted',
                     padHead,
                     sortable && 'cursor-pointer select-none transition-colors hover:text-ink',
                   )}
@@ -139,7 +139,7 @@ export default function TablaIncidencias({ rows, cols, onVer }: Props) {
               key={r.id}
               onClick={onVer ? () => onVer(r.id) : undefined}
               className={clsx(
-                'border-b border-line/60 transition-colors last:border-0',
+                'border-b border-dashed border-line/70 transition-colors last:border-0',
                 onVer && 'cursor-pointer hover:bg-surface2',
               )}
             >

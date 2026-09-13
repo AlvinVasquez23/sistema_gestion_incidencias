@@ -39,7 +39,7 @@ const memoriaFiltros: Record<string, FiltrosModulo> = {}
 
 export default function ModuloPage({ vista }: { vista: string }) {
   const cfg = VISTAS[vista]
-  const { rows } = useData()
+  const { rows, ultimaActualizacion } = useData()
   const { prefs } = useSettings()
   const POR_PAG = prefs.porPagina
 
@@ -57,6 +57,28 @@ export default function ModuloPage({ vista }: { vista: string }) {
   useEffect(() => {
     memoriaFiltros[vista] = { estado, area, sla, desde, hasta, q, pag }
   }, [vista, estado, area, sla, desde, hasta, q, pag])
+
+
+
+// Formatear tiempo relativo
+const tiempoRelativo = useMemo(() => {
+  if (!ultimaActualizacion) return ''
+  const segs = Math.floor((Date.now() - ultimaActualizacion.getTime()) / 1000)
+  if (segs < 10) return 'Ahora'
+  if (segs < 60) return `Hace ${segs}s`
+  return `Hace ${Math.floor(segs / 60)}m`
+}, [ultimaActualizacion, rows]) // Re-calcular cuando cambian rows
+
+// En el JSX, antes de los filtros:
+{(cfg.conStatus || cfg.conValorizado) && (
+  <div className="flex flex-wrap items-center gap-3">
+    {/* ... chips existentes ... */}
+    <span className="ml-auto flex items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1 text-xs font-semibold tabular-nums text-muted">
+      <span className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
+      {tiempoRelativo}
+    </span>
+  </div>
+)} 
 
   /* ===== Filtrado (Pool = SOLO AMR + Auditorías Reaba) ===== */
   const filtradas = useMemo(() => rows.filter(r => {

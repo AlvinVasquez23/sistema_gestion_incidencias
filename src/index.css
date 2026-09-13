@@ -30,3 +30,12 @@ body { @apply bg-bg font-sans text-ink antialiased; }
 :root:not(.dark) .shadow-card {
   box-shadow: 0 1px 2px rgb(15 23 42 / 0.10), 0 8px 24px rgb(15 23 42 / 0.12);
 }
+
+/* Barra indeterminada del Loader */
+@keyframes loader-bar {
+  0%   { transform: translateX(-110%); }
+  100% { transform: translateX(310%); }
+}
+.loader-bar {
+  animation: loader-bar 1.2s ease-in-out infinite;
+}

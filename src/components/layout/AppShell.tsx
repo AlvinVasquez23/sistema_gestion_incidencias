@@ -3,7 +3,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Inbox, Bot, ClipboardCheck, Forklift, Layers,
   Sun, Moon, LogOut, Bell, Settings, Menu, X, ChevronsLeft, ChevronsRight, RefreshCw,
-  CalendarDays, Radio, Users, ClipboardPlus,
+  CalendarDays, Radio, Users, ClipboardPlus, Database,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useTheme } from '../../context/ThemeContext'
@@ -165,9 +165,9 @@ export default function AppShell() {
           {/* Estado de la conexión visible en todos los módulos */}
           <span className={clsx(
             'hidden items-center gap-1.5 rounded-full border px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-wider md:flex',
-            fuente === 'apps-script' ? 'border-ok/30 bg-ok/10 text-ok' : 'border-warn/30 bg-warn/10 text-warn',
+            fuente === 'worker' ? 'border-ok/30 bg-ok/10 text-ok' : 'border-warn/30 bg-warn/10 text-warn',
           )}>
-            <Radio size={12} /> {fuente === 'apps-script' ? 'Apps Script' : 'Mock'}{cargando ? ' · sync…' : ''}
+            <Radio size={12} /> {fuente === 'worker' ? 'Turso' : 'Mock'}
           </span>
           <button
             onClick={() => void recargar()}
@@ -213,11 +213,14 @@ export default function AppShell() {
         {cargando ? (
           <div className="flex flex-col items-center justify-center gap-3 py-24 text-muted">
             <RefreshCw size={28} className="animate-spin text-adecco" />
-            <p className="font-mono text-xs font-bold uppercase tracking-[0.08em]">Sincronizando con Apps Script…</p>
+            <span className="flex items-center gap-1.5 rounded-full border border-adecco/30 bg-adecco/10 px-3 py-1 text-xs font-bold text-adecco">
+              <Database size={12} />
+              Turso
+            </span>
           </div>
         ) : error ? (
           <div className="mx-auto max-w-md rounded-xl border border-red-500/30 bg-red-500/10 p-6 text-center">
-            <p className="text-sm font-bold text-red-600 dark:text-[#ff4d58]">No se pudo cargar datos de Apps Script</p>
+            <p className="text-sm font-bold text-red-600 dark:text-[#ff4d58]">No se pudo cargar datos de Turso</p>
             <p className="mt-1 text-xs text-muted">{error}</p>
             <div className="mt-4 flex justify-center gap-2">
               <button onClick={() => void recargar()} className="h-9 rounded-lg bg-adecco px-4 text-xs font-bold text-white hover:bg-adecco-hover">

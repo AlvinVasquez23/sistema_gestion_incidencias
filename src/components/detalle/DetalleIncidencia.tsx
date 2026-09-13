@@ -35,7 +35,7 @@ export default function DetalleIncidencia({ id, onClose }: { id: string; onClose
   const esAux = r.modulo === 'AUX'
   const [nombreWms, setNombreWms] = useState('')
   useEffect(() => {
-    const cod = form.usuario_picking.trim()
+    const cod = (form.usuario_picking ?? '')
     if (!cod) { setNombreWms(''); return }
     if (!apiActiva()) { setNombreWms(WMS_USERS[cod] ?? ''); return }
     const t = setTimeout(() => {

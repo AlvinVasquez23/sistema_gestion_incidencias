@@ -12,8 +12,11 @@ const app = new Hono<{ Bindings: Env }>()
 
 app.use('*', cors({
   origin: (origin, c) => {
-const lista = (c.env.ALLOWED_ORIGIN ?? '').split(',').map((s: string) => s.trim()).filter(Boolean)
-    return origin && lista.includes(origin) ? origin : ''
+    const lista = (c.env.ALLOWED_ORIGIN ?? '').split(',').map((s: string) => s.trim()).filter(Boolean)
+    if (origin && lista.includes(origin)) return origin
+    // Dev local: cualquier puerto de localhost / 127.0.0.1
+    if (origin && /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) return origin
+    return ''
   },
   allowMethods: ['POST', 'GET', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Authorization'],
