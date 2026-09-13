@@ -12,7 +12,7 @@ import CaptureShell, {
   CapturaHome, MisCapturas, ConsultaIncidencias, CapturaForm,
 } from './components/layout/CaptureShell'
 import AutoLogout from './components/seguridad/AutoLogout'
-import { Loader } from './components/loader'
+import { Loader } from './components/Loader'
 
 /* Solo supervisores ven la app completa; un auxiliar que intente entrar va a /captura */
 function SoloSupervisor({ children }: { children: ReactElement }) {
