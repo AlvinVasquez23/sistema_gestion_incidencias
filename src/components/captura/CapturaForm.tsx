@@ -205,7 +205,7 @@ export default function CapturaForm({ modulo }: { modulo: string }) {
       cantidad: esSoloLpn ? 0 : cant, um: 'Unidad', observacion: f.observacion,
     }
     try {
-      const tok = localStorage.getItem('ims_token') ?? user?.usuario ?? ''
+
       if (modulo === 'AUX') {
         // AUX usa su propia acción pero también va por el DataContext para mantener consistencia
         const id = await registrarAux({
