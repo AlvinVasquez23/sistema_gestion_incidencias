@@ -2,7 +2,7 @@ import type { ReactElement } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { ThemeProvider } from './context/ThemeContext'
 import { AuthProvider, useAuth } from './context/AuthContext'
-import { DataProvider, useData } from './context/DataContext'
+import { DataProvider } from './context/DataContext'
 import { SettingsProvider } from './context/SettingsContext'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
@@ -12,7 +12,7 @@ import CaptureShell, {
   CapturaHome, MisCapturas, ConsultaIncidencias, CapturaForm,
 } from './components/layout/CaptureShell'
 import AutoLogout from './components/seguridad/AutoLogout'
-import { Loader } from './components/Loader'
+
 
 /* Solo supervisores ven la app completa; un auxiliar que intente entrar va a /captura */
 function SoloSupervisor({ children }: { children: ReactElement }) {
@@ -34,10 +34,6 @@ function RutaCaptura({ children }: { children: ReactElement }) {
    Aquí sí es seguro usar useAuth/useData.
    El loader SOLO aplica con sesión activa: sin usuario, el Login nunca se bloquea. */
 function Shell() {
-  const { user } = useAuth()
-  const { cargando } = useData()
-
-  if (user && cargando) return <Loader mensaje="Cargando incidencias…" />
 
   return (
     <>
