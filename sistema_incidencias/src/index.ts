@@ -1,7 +1,38 @@
-export default {
-  fetch(request: Request) {
-    return new Response(JSON.stringify({ ok: true, message: 'Worker mínimo funcionando' }), {
-      headers: { 'Content-Type': 'application/json' }
-    })
-  }
-}
+import { Hono } from 'hono'
+import { cors } from 'hono/cors'
+import type { Env } from './db'
+import { login } from './routes/login'
+import { incidencias } from './routes/incidencias'
+import { obtenerModulo } from './routes/modulo'
+import { guardarRevision, cerrar } from './routes/seguimiento'
+import { registrar, corregir, registrarAux } from './routes/capturas'
+import { tiposAux, buscarAuxiliares, buscarSku, nombreWms, cambiarPassword } from './routes/catalogos'
+
+const app = new Hono<{ Bindings: Env }>()
+
+app.use('*', cors({
+  origin: (origin, c) => {
+const lista = (c.env.ALLOWED_ORIGIN ?? '').split(',').map((s: string) => s.trim()).filter(Boolean)
+    return origin && lista.includes(origin) ? origin : ''
+  },
+  allowMethods: ['POST', 'GET', 'OPTIONS'],
+  allowHeaders: ['Content-Type', 'Authorization'],
+}))
+
+app.get('/', (c) => c.json({ ok: true, message: 'Sistema de Incidencias API' }))
+
+app.post('/api/login', login)
+app.post('/api/incidencias', incidencias)
+app.post('/api/modulo', obtenerModulo)
+app.post('/api/revision', guardarRevision)
+app.post('/api/cierre', cerrar)
+app.post('/api/registrar', registrar)
+app.post('/api/corregir', corregir)
+app.post('/api/registrar-aux', registrarAux)
+app.post('/api/tipos-aux', tiposAux)
+app.post('/api/auxiliares', buscarAuxiliares)
+app.post('/api/sku', buscarSku)
+app.post('/api/wms', nombreWms)
+app.post('/api/password', cambiarPassword)
+
+export default app

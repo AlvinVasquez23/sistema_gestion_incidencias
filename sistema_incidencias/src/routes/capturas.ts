@@ -1,5 +1,5 @@
 import type { Context } from 'hono'
-import type { Client, InValue } from '@libsql/client'
+import type { Client, InValue } from '@libsql/client/web'
 import { getDb, type Env } from '../db'
 import { auth, TABLAS, ahoraPE, body } from '../helpers'
 

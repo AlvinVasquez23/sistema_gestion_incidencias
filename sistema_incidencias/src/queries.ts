@@ -1,4 +1,5 @@
-import type { Client } from '@libsql/client'
+
+import type { Client } from '@libsql/client/web'
 import { normalizarFila, type FilaRaw } from './normalizar'
 
 const sqlDe = (tabla: string, modulo: string, donde = '') => {

@@ -1,69 +1,72 @@
+/* Adapter al Worker de Cloudflare + Turso (reemplaza Apps Script) */
 import type { Incidencia } from '../data/mock'
-/* ===== Capa API contra Apps Script (Paso 5) =====
-   Apps Script no soporta preflight CORS con Content-Type json,
-   por eso el POST viaja como text/plain y el JSON va en el body.
-   Si VITE_API_URL está vacío, la app opera en modo mock. */
 
-const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? ''
+const WORKER = (import.meta.env.VITE_WORKER_URL as string | undefined)?.replace(/\/$/, '') ?? ''
 
-export const apiActiva = () => API_URL.trim() !== ''
+export const apiActiva = () => WORKER.length > 0
 
-console.log('[api.ts] VITE_API_URL leída:', JSON.stringify(API_URL), '| apiActiva:', apiActiva())
+export interface LoginResult {
+  ok: true
+  usuario: string; nombre: string; rol: string
+  esSupervisor: boolean; esAdmin: boolean
+  token: string
+}
 
-async function llamar<T>(action: string, payload: Record<string, unknown> = {}): Promise<T> {
-  const res = await fetch(API_URL, {
+async function llamar<T>(path: string, token: string, body?: unknown): Promise<T> {
+  const res = await fetch(`${WORKER}${path}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({ action, ...payload }),
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(body ?? {}),
   })
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
-  const json = (await res.json()) as { ok: boolean; data?: T; error?: string }
-  if (!json.ok) throw new Error(json.error ?? 'Error desconocido del servidor')
+  const json = await res.json().catch(() => null)
+  if (res.status === 401) {
+    localStorage.removeItem('ims_token')
+    window.dispatchEvent(new Event('ims:session-expirada'))
+  }
+  if (!res.ok || !json || json.ok === false) {
+    throw new Error(json?.error || json?.mensaje || `Error de conexión (${res.status})`)
+  }
   return json.data as T
 }
 
 export const api = {
-  login: (usuario: string, password: string) =>
-    llamar<{ usuario: string; nombre: string; rol: string; esSupervisor: boolean; token: string }>('login', { usuario, password }),
-  incidencias: (token: string) => llamar<unknown[]>('incidencias', { token }),
-  guardarRevision: (token: string, id: string, payload: unknown) =>
-    llamar<Incidencia>('guardar_revision', { token, id, payload }),
-  cerrar: (token: string, id: string, causa: string) =>
-    llamar<Incidencia>('cerrar', { token, id, causa }),
-  nombreWms: (token: string, codigo: string) => llamar<string>('nombre_wms', { token, codigo }),
-  cambiarPassword: (token: string, actual: string, nueva: string) =>
-    llamar<unknown>('cambiar_password', { token, actual, nueva }),
-  registrar: (token: string, modulo: string, datos: Record<string, unknown>) =>
-    llamar<{ id: string }>('registrar', { token, modulo, datos }),
-  corregir: (token: string, modulo: string, id: string, datos: Record<string, unknown>) =>
-    llamar<unknown>('corregir', { token, modulo, id, datos }),
-  buscarSku: (token: string, codigo: string) =>
-    llamar<{ d: string; p: number | null } | null>('buscar_sku', { token, codigo }),
+  login: async (usuario: string, password: string): Promise<LoginResult> => {
+    const res = await fetch(`${WORKER}/api/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ usuario, password }),
+    })
+    const json = await res.json().catch(() => null)
+    if (!res.ok || !json?.ok) throw new Error(json?.mensaje || `Error de conexión (${res.status})`)
+    return json as LoginResult
+  },
 
-  buscarAuxiliares: (token: string, area: string) =>
-    llamar<string[]>('buscar_auxiliares', { token, area }),  
+  incidencias: (token: string) => llamar<Incidencia[]>('/api/incidencias', token),
+  obtenerModulo: (token: string, modulo: string) => llamar<Incidencia[]>('/api/modulo', token, { modulo }),
+
+  guardarRevision: (token: string, id: string, payload: unknown) =>
+    llamar<Incidencia>('/api/revision', token, { id, ...(payload as object) }),
+
+  cerrar: (token: string, id: string, causa: string) =>
+    llamar<Incidencia>('/api/cierre', token, { id, causa }),
+
+  registrar: (token: string, modulo: string, datos: Record<string, unknown>) =>
+    llamar<{ id: string }>('/api/registrar', token, { modulo, datos }),
+
+  corregir: (token: string, modulo: string, id: string, datos: Record<string, unknown>) =>
+    llamar<unknown>('/api/corregir', token, { modulo, id, datos }),
 
   registrarAux: (token: string, datos: Record<string, unknown>) =>
-    llamar<{ id: string }>('registrar_aux', { token, datos }),
-  tiposAux: (token: string) => llamar<string[]>('tipos_aux', { token }),  
+    llamar<{ id: string }>('/api/registrar-aux', token, { datos }),
 
-  obtenerModulo: (token: string, modulo: string) =>
-    llamar<Incidencia[]>('obtener_modulo', { token, modulo }),  
-  
-}
-
-/* Login en crudo: devuelve el JSON tal cual para distinguir
-   credenciales incorrectas (ok:false) de fallo de red (throw) */
-export async function loginApi(usuario: string, password: string) {
-  const res = await fetch(API_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({ action: 'login', usuario, password }),
-  })
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
-  return (await res.json()) as {
-    ok: boolean
-    mensaje?: string
-    usuario?: string; nombre?: string; rol?: string; esSupervisor?: boolean; esAdmin?: boolean; token?: string
-  }
+  tiposAux: (token: string) => llamar<string[]>('/api/tipos-aux', token),
+  buscarAuxiliares: (token: string, area: string) => llamar<string[]>('/api/auxiliares', token, { area }),
+  buscarSku: (token: string, codigo: string) => llamar<{ d: string; p: number } | null>('/api/sku', token, { codigo }),
+  nombreWms: (token: string, codigo: string) => llamar<string>('/api/wms', token, { codigo }),
+  buscarNombreWms: (token: string, codigo: string) => llamar<string>('/api/wms', token, { codigo }),
+  cambiarPassword: (token: string, actual: string, nueva: string) =>
+    llamar<unknown>('/api/password', token, { actual, nueva }),
 }
