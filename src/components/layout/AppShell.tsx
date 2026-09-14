@@ -3,7 +3,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Inbox, Bot, ClipboardCheck, Forklift, Layers,
   Sun, Moon, LogOut, Bell, Settings, Menu, X, ChevronsLeft, ChevronsRight, RefreshCw,
-  CalendarDays, Radio, Users, ClipboardPlus, 
+  CalendarDays, Radio, Users, ClipboardPlus, ShieldCheck,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useTheme } from '../../context/ThemeContext'
@@ -11,6 +11,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useData } from '../../context/DataContext'
 import { useSettings } from '../../context/SettingsContext'
 import SettingsPanel from '../settings/SettingsPanel'
+import AdminPanel from '../admin/AdminPanel'
 
 
 export const NAV = [
@@ -20,7 +21,7 @@ export const NAV = [
   { to: '/aud', label: 'Auditorías Reaba', icon: ClipboardCheck, end: false },
   { to: '/api', label: 'Incidencias Apilador', icon: Forklift, end: false },
   { to: '/afr', label: 'Incidencias AFRAME', icon: Layers, end: false },
-  { to: '/auxp', icon: Users, label: 'Incidencias Personal' },  
+  { to: '/auxp', icon: Users, label: 'Incidencias Personal' },
 ]
 
 function LogoAdecco({ className }: { className?: string }) {
@@ -43,6 +44,7 @@ export default function AppShell() {
   const collapsed = prefs.sidebarColapsada
   const toggleSidebar = () => actualizar({ sidebarColapsada: !collapsed })
   const [ajustes, setAjustes] = useState(false)
+  const [adminOpen, setAdminOpen] = useState(false)
 
   const titulo = NAV.find(n => (n.end ? pathname === n.to : pathname.startsWith(n.to)))?.label ?? 'Indicadores'
   const salir = () => { logout(); nav('/login') }
@@ -58,7 +60,7 @@ export default function AppShell() {
         <button
           onClick={toggleSidebar}
           title={collapsed ? 'Expandir menú' : 'Colapsar menú'}
-                    className="absolute -right-3 top-20 z-40 grid h-7 w-7 place-items-center rounded-full border border-line bg-surface text-muted shadow-card transition-colors hover:text-adecco"
+          className="absolute -right-3 top-20 z-40 grid h-7 w-7 place-items-center rounded-full border border-line bg-surface text-muted shadow-card transition-colors hover:text-adecco"
         >
           {collapsed ? <ChevronsRight size={15} /> : <ChevronsLeft size={15} />}
         </button>
@@ -94,9 +96,23 @@ export default function AppShell() {
           ))}
         </nav>
 
-        {/* Pie: ajustes + tema + salir + footer (compacto) */}
+        {/* Pie: administrador (solo admin) + ajustes + tema + salir + footer */}
         <div className={clsx('space-y-0.5 border-t border-line px-3 pb-2.5 pt-2.5', collapsed && 'px-2')}>
-        
+
+          {user?.esAdmin && (
+            <button
+              onClick={() => setAdminOpen(true)}
+              title="Administrador"
+              className={clsx(
+                'flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-semibold text-muted transition-colors hover:bg-surface2 hover:text-ink',
+                collapsed && 'justify-center px-0',
+              )}
+            >
+              <ShieldCheck size={18} className="shrink-0" />
+              {!collapsed && <span>Administrador</span>}
+            </button>
+          )}
+
           <button
             onClick={() => setAjustes(true)}
             title="Ajustes"
@@ -142,7 +158,7 @@ export default function AppShell() {
 
           {!collapsed && (
             <p className="px-1 pb-0.5 pt-2 text-center text-[9px] font-medium leading-snug text-muted">
-              © 2026 All rights Reserved · Developed by ALHV
+              © 2026 Todos los derechos reservados<br />Desarrollado por Alvin Huaman Vasquez
             </p>
           )}
         </div>
@@ -170,7 +186,7 @@ export default function AppShell() {
             <Radio size={12} /> {fuente === 'worker' ? 'Turso' : 'Mock'}
           </span>
           <button
-            onClick={() => void recargar()}
+            onClick={() => void recargar(true)}
             title="Actualizar datos"
             className="flex h-9 items-center gap-2 rounded-lg border border-line px-2.5 text-muted transition-colors hover:bg-surface2 hover:text-ink"
           >
@@ -194,7 +210,7 @@ export default function AppShell() {
               <ClipboardPlus size={16} />
               <span className="hidden text-xs font-bold lg:inline">Módulo registro</span>
             </button>
-          )}          
+          )}
           <button onClick={() => setSheet('ajustes')}
             className="ml-1 grid h-9 w-9 place-items-center rounded-full bg-surface2 font-mono text-xs font-bold uppercase lg:hidden">
             {user?.nombre.slice(0, 2)}
@@ -208,7 +224,7 @@ export default function AppShell() {
         </div>
       </header>
 
-      {/* ===== CONTENIDO (se ajusta al colapso) + loader/error ===== */}
+      {/* ===== CONTENIDO (se ajusta al colapso) + error ===== */}
       <main className={clsx('px-4 pb-24 pt-5 transition-[padding] duration-300 lg:pb-8 lg:pr-8 lg:pt-7', pad)}>
         {error && (
           <div className="mx-auto mb-4 max-w-md rounded-xl border border-red-500/30 bg-red-500/10 p-6 text-center">
@@ -250,6 +266,11 @@ export default function AppShell() {
       {/* ===== PANEL DE AJUSTES ===== */}
       <SettingsPanel abierto={ajustes} onClose={() => setAjustes(false)} />
 
+      {/* ===== PANEL DE ADMINISTRACIÓN (drawer, solo admin) ===== */}
+      {adminOpen && (
+        <AdminPanel key="admin" tab="usuarios" onClose={() => setAdminOpen(false)} />
+      )}
+
       {sheet && (
         <div className="fixed inset-0 z-40 lg:hidden" onClick={() => setSheet(null)}>
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
@@ -258,11 +279,17 @@ export default function AppShell() {
             {sheet === 'modulos' ? (
               <div className="grid grid-cols-2 gap-2">
                 {user?.esAdmin && (
-                  <NavLink to="/captura" onClick={() => setSheet(null)}
-                    className="flex items-center gap-3 rounded-xl border border-adecco/40 bg-adecco/10 p-3 text-sm font-semibold text-adecco">
-                    <ClipboardPlus size={18} /> Módulo registro
-                  </NavLink>
-                )}                
+                  <>
+                    <NavLink to="/captura" onClick={() => setSheet(null)}
+                      className="flex items-center gap-3 rounded-xl border border-adecco/40 bg-adecco/10 p-3 text-sm font-semibold text-adecco">
+                      <ClipboardPlus size={18} /> Módulo registro
+                    </NavLink>
+                    <button onClick={() => { setAdminOpen(true); setSheet(null) }}
+                      className="flex items-center gap-3 rounded-xl border border-adecco/40 bg-adecco/10 p-3 text-sm font-semibold text-adecco">
+                      <ShieldCheck size={18} /> Administrador
+                    </button>
+                  </>
+                )}
                 {NAV.slice(2).map(n => (
                   <NavLink key={n.to} to={n.to} onClick={() => setSheet(null)}
                     className="flex items-center gap-3 rounded-xl border border-line bg-surface2 p-3 text-sm font-semibold">
@@ -281,10 +308,18 @@ export default function AppShell() {
                     {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />} {theme === 'dark' ? 'Light' : 'Dark'}
                   </button>
                 </div>
+                {user?.esAdmin && (
+                  <button onClick={() => { setAdminOpen(true); setSheet(null) }}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl border border-adecco/40 bg-adecco/10 py-3 text-sm font-bold text-adecco">
+                    <ShieldCheck size={16} /> Administrador
+                  </button>
+                )}
                 <button onClick={salir} className="flex w-full items-center justify-center gap-2 rounded-xl bg-adecco py-3 text-sm font-bold text-white">
                   <LogOut size={16} /> Cerrar sesión
                 </button>
-                <p className="text-center font-mono text-[10px] text-muted">© 2026 All rights Reserved | Developed by ALHV</p>
+                <p className="text-center font-mono text-[10px] text-muted">
+                  © 2026 Todos los derechos reservados · Desarrollado por Alvin Huaman Vasquez
+                </p>
               </div>
             )}
             <button onClick={() => setSheet(null)} className="mx-auto mt-4 flex items-center gap-1 text-xs font-bold text-muted">

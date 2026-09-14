@@ -158,7 +158,7 @@ export default function Login() {
 
             {/* Footer dentro de la tarjeta */}
             <p className="mt-6 text-center text-[11px] font-medium text-muted">
-              © 2026 All rights Reserved | Developed by ALHV
+              © 2026 All rights Reserved | Desarrollado por Alvin Huaman Vasquez
             </p>
           </div>
         </div>

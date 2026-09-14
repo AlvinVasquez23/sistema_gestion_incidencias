@@ -23,7 +23,13 @@ export interface HistRow {
   usuario: string
   datos_anteriores: string
   datos_nuevos: string
+  
 }
+
+export interface AdminUsuario { usuario: string; nombre: string; rol: string; activo: number }
+export interface AdminProducto { ean: string; sku: string; descripcion: string | null; precio_unitario: number | null; proveedor: string | null }
+export interface AdminAuxiliar { id: number; nombre: string; area: string }
+export interface ResultMasivo { insertados: number; actualizados?: number; omitidos?: number; errores: string[] }
 
 async function llamar<T>(path: string, token: string, body?: unknown): Promise<T> {
   const res = await fetch(`${WORKER}${path}`, {
@@ -88,5 +94,14 @@ export const api = {
   historial: (token: string, id: string) => llamar<HistRow[]>('/api/historial', token, { id }),
 
   sync: (token: string) => llamar<{ fp: string }>('/api/sync', token),  
+
+  adminUsuarioBuscar: (token: string, usuario: string) => llamar<AdminUsuario | null>('/api/admin/usuario-buscar', token, { usuario }),
+  adminUsuarioGuardar: (token: string, datos: Record<string, unknown>) => llamar<unknown>('/api/admin/usuario-guardar', token, datos),
+  adminProductoBuscar: (token: string, ean: string) => llamar<AdminProducto | null>('/api/admin/producto-buscar', token, { ean }),
+  adminProductoGuardar: (token: string, datos: Record<string, unknown>) => llamar<unknown>('/api/admin/producto-guardar', token, datos),
+  adminProductosMasivo: (token: string, filas: Record<string, unknown>[]) => llamar<ResultMasivo>('/api/admin/productos-masivo', token, { filas }),
+  adminAuxiliarBuscar: (token: string, nombre: string, area: string) => llamar<AdminAuxiliar | null>('/api/admin/auxiliar-buscar', token, { nombre, area }),
+  adminAuxiliarGuardar: (token: string, datos: Record<string, unknown>) => llamar<unknown>('/api/admin/auxiliar-guardar', token, datos),
+  adminAuxiliaresMasivo: (token: string, filas: Record<string, unknown>[]) => llamar<ResultMasivo>('/api/admin/auxiliares-masivo', token, { filas }),  
 
 }
