@@ -22,7 +22,7 @@ interface DataCtx {
   ultimaActualizacion: Date | null
   fuente: 'worker' | 'mock'
   usarMockManual: () => void
-  recargar: () => Promise<void>
+  recargar: (forzar?: boolean) => Promise<void>
   refrescarModulo: (modulo: string) => Promise<void>
   guardarRevision: (id: string, payload: RevisionPayload) => Promise<void>
   cerrarIncidencia: (id: string, causa: string) => Promise<void>
@@ -49,7 +49,7 @@ const ahoraPE = () => {
   return { fecha: iso.slice(0, 10).split('-').reverse().join('/'), hora: iso.slice(11, 19) }
 }
 
-const POLL_MS = 15_000
+const POLL_MS = 45_000 
 
 export function DataProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()
@@ -64,10 +64,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const token = () => localStorage.getItem('ims_token') ?? ''
 
   /* ===== Carga total (5 módulos) ===== */
-  const recargar = useCallback(async () => {
+  const recargar = useCallback(async (forzar = false) => {
     if (!apiActiva() || mockManual || !token()) return
-    if (enVuelo.current) return
+    if (enVuelo.current && !forzar) return
     enVuelo.current = true
+    setCargando(true)
     try {
       const data = await api.incidencias(token())
       setRows(data)
@@ -113,15 +114,24 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   }, [user, recargar])
 
-  /* ===== Polling 15 s: sincroniza móvil ↔ desktop sin F5 ===== */
+  
+  /* ===== Polling inteligente: huella barata cada 45 s; descarga completa solo si algo cambió ===== */
   useEffect(() => {
     if (!user || !apiActiva() || mockManual) return
-    let interval: ReturnType<typeof setInterval> | null = setInterval(() => void recargar(), POLL_MS)
+    let fpPrev = ''
+    const check = async () => {
+      try {
+        const { fp } = await api.sync(token())
+        if (fpPrev && fp !== fpPrev) void recargar()
+        fpPrev = fp
+      } catch { /* el siguiente tick reintenta */ }
+    }
+    let interval: ReturnType<typeof setInterval> | null = setInterval(check, POLL_MS)
     const onVisibility = () => {
       if (interval) { clearInterval(interval); interval = null }
       if (!document.hidden) {
-        void recargar()
-        interval = setInterval(() => void recargar(), POLL_MS)
+        void check()   // al volver a la pestaña: chequeo inmediato
+        interval = setInterval(check, POLL_MS)
       }
     }
     document.addEventListener('visibilitychange', onVisibility)

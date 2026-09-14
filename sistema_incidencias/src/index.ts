@@ -2,9 +2,9 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import type { Env } from './db'
 import { login } from './routes/login'
-import { incidencias } from './routes/incidencias'
+import { incidencias, sync } from './routes/incidencias'
 import { obtenerModulo } from './routes/modulo'
-import { guardarRevision, cerrar } from './routes/seguimiento'
+import { guardarRevision, cerrar, historial } from './routes/seguimiento'
 import { registrar, corregir, registrarAux } from './routes/capturas'
 import { tiposAux, buscarAuxiliares, buscarSku, nombreWms, cambiarPassword } from './routes/catalogos'
 
@@ -37,5 +37,7 @@ app.post('/api/auxiliares', buscarAuxiliares)
 app.post('/api/sku', buscarSku)
 app.post('/api/wms', nombreWms)
 app.post('/api/password', cambiarPassword)
+app.post('/api/historial', historial)
+app.post('/api/sync', sync)
 
 export default app

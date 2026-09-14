@@ -12,6 +12,19 @@ export interface LoginResult {
   token: string
 }
 
+export interface HistRow {
+  id: number
+  incidencia_id: string
+  modulo: string
+  tipo_operacion: string
+  fecha: string
+  hora: string
+  ts: number
+  usuario: string
+  datos_anteriores: string
+  datos_nuevos: string
+}
+
 async function llamar<T>(path: string, token: string, body?: unknown): Promise<T> {
   const res = await fetch(`${WORKER}${path}`, {
     method: 'POST',
@@ -42,6 +55,9 @@ export const api = {
     const json = await res.json().catch(() => null)
     if (!res.ok || !json?.ok) throw new Error(json?.mensaje || `Error de conexión (${res.status})`)
     return json as LoginResult
+
+    
+
   },
 
   incidencias: (token: string) => llamar<Incidencia[]>('/api/incidencias', token),
@@ -69,4 +85,8 @@ export const api = {
   buscarNombreWms: (token: string, codigo: string) => llamar<string>('/api/wms', token, { codigo }),
   cambiarPassword: (token: string, actual: string, nueva: string) =>
     llamar<unknown>('/api/password', token, { actual, nueva }),
+  historial: (token: string, id: string) => llamar<HistRow[]>('/api/historial', token, { id }),
+
+  sync: (token: string) => llamar<{ fp: string }>('/api/sync', token),  
+
 }

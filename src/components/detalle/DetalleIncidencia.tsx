@@ -5,10 +5,53 @@ import { useData, type RevisionPayload } from '../../context/DataContext'
 import { useAuth } from '../../context/AuthContext'
 import { Badge, statusTone, slaTone } from '../ui/Badge'
 import { fmtMoney, WMS_USERS } from '../../data/mock'
-import { api, apiActiva } from '../../services/api'
+import { api, apiActiva, type HistRow } from '../../services/api'
 
 const input = 'h-10 w-full rounded-lg border border-line bg-surface2 px-3 text-sm outline-none transition focus:border-adecco focus:ring-2 focus:ring-adecco/20 disabled:cursor-not-allowed disabled:opacity-60'
 const label = 'mb-1 block text-[11px] font-bold uppercase tracking-wider text-muted'
+
+/* ===== Etiquetas amigables para los diffs del historial ===== */
+const ETIQ: Record<string, string> = {
+  tipo_incidencia: 'Tipo', lpn: 'LPN', cubeta: 'Cubeta', estacion: 'Estación',
+  codigo: 'Código', articulo: 'Artículo', lote: 'Lote', cantidad: 'Cantidad',
+  observacion: 'Observación', status: 'Status', causa_raiz: 'Causa raíz',
+  usuario_cierre: 'Cerrado por', fecha_cierre: 'Fecha cierre', hora_cierre: 'Hora cierre',
+  fecha_revision: 'Fecha revisión', hora_revision: 'Hora revisión', usuario_revision: 'Revisado por',
+  turno_picking: 'Turno picking', usuario_picking: 'Usuario picking', ubicacion_picking: 'Ubicación picking',
+  fecha_modific_wms: 'Fecha mod. WMS', ubicacion_hallazgo: 'Ubicación hallazgo', obs_revision: 'Obs. revisión',
+  valorizado: 'Valorizado', auxiliar: 'Auxiliar', area: 'Área', reportado: 'Reportado', auditor: 'Auditor',
+  n_semana: 'N° semana', tiempo_solucion: 'Tiempo solución',
+}
+
+const TIT_OP: Record<string, string> = { correccion: 'Corrección de captura', mod_revision: 'Modificación de revisión' }
+const fmtVal = (v: unknown) => { const s = String(v ?? '').trim(); return s === '' ? '—' : s }
+
+/* Convierte "dd/MM/yyyy HH:mm:ss" a timestamp para ordenar el historial */
+const tsDe = (f: string): number => {
+  const [fecha, hora] = f.split(' ')
+  const [d, m, y] = (fecha ?? '').split('/')
+  const [hh, mm, ss] = (hora ?? '00:00:00').split(':')
+  const dt = new Date(Number(y), Number(m) - 1, Number(d), Number(hh) || 0, Number(mm) || 0, Number(ss) || 0)
+  return isNaN(dt.getTime()) ? 0 : dt.getTime()
+}
+
+/* Compara snapshots JSON y devuelve solo los campos que cambiaron: "Campo: antes → después" */
+const diffsDe = (row: HistRow): string[] => {
+  try {
+    const a = JSON.parse(row.datos_anteriores) as Record<string, unknown>
+    const b = JSON.parse(row.datos_nuevos) as Record<string, unknown>
+    const out: string[] = []
+    for (const k of Object.keys(b)) {
+      if (k === 'ts') continue
+      if (String(a[k] ?? '') !== String(b[k] ?? '')) {
+        out.push(`${ETIQ[k] ?? k}: ${fmtVal(a[k])} → ${fmtVal(b[k])}`)
+      }
+    }
+    return out
+  } catch { return [] }
+}
+
+interface HistItem { f: string; t: string; diffs?: string[] }
 
 export default function DetalleIncidencia({ id, onClose }: { id: string; onClose: () => void }) {
   const { rows, guardarRevision, cerrarIncidencia } = useData()
@@ -27,6 +70,17 @@ export default function DetalleIncidencia({ id, onClose }: { id: string; onClose
   const [mostrarCerrar, setMostrarCerrar] = useState(false)
   const [aviso, setAviso] = useState<null | { texto: string }>(null)
   const [editando, setEditando] = useState(() => r?.status !== 'Revisado')
+  const [histDb, setHistDb] = useState<HistRow[]>([])
+
+  /* Carga el historial de auditoría desde Turso al abrir el detalle */
+  useEffect(() => {
+    let vivo = true
+    if (!apiActiva()) { setHistDb([]); return }
+    api.historial(localStorage.getItem('ims_token') ?? '', id)
+      .then(h => { if (vivo) setHistDb(h) })
+      .catch(() => { if (vivo) setHistDb([]) })
+    return () => { vivo = false }
+  }, [id])
 
   if (!r) return null
 
@@ -93,7 +147,9 @@ export default function DetalleIncidencia({ id, onClose }: { id: string; onClose
   ]
   const campos = [...captura, ...extra].filter(([, v]) => v && v.trim() !== '')
 
-  const hist = esAux ? [
+
+  /* ===== Historial clásico (registro / revisión / cierre) — igual que siempre ===== */
+  const hist: HistItem[] = esAux ? [
     { f: `${r.fecha} ${r.hora}`, t: `Registrado por ${r.usuario_registro || '—'} · Auxiliar: ${r.auxiliar_persona || '—'}` },
   ] : [
     { f: `${r.fecha} ${r.hora}`, t: `Registrado por ${r.reportado || '—'}` },
@@ -104,6 +160,17 @@ export default function DetalleIncidencia({ id, onClose }: { id: string; onClose
     })) : []),
     ...(r.fecha_cierre ? [{ f: `${r.fecha_cierre} ${r.hora_cierre}`, t: `Cerrado por ${r.usuario_cierre || '—'}${r.causa_raiz ? ` · Causa: ${r.causa_raiz}` : ''}` }] : []),
   ]
+
+  /* ===== Auditoría de modificaciones: solo campos cambiados, con antes → después ===== */
+  histDb
+    .filter(x => x.tipo_operacion === 'correccion' || x.tipo_operacion === 'mod_revision')
+    .forEach(row => hist.push({
+      f: `${row.fecha} ${row.hora}`,
+      t: `${TIT_OP[row.tipo_operacion] ?? row.tipo_operacion} · ${row.usuario}`,
+      diffs: diffsDe(row),
+    }))
+
+  hist.sort((a, b) => tsDe(a.f) - tsDe(b.f))
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
@@ -138,7 +205,7 @@ export default function DetalleIncidencia({ id, onClose }: { id: string; onClose
           <div className="mx-6 mt-6 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
             Auditoría conforme: cerrada automáticamente al registrarse.
           </div>
-        )}        
+        )}
 
         {/* Cuerpo: 2 columnas si está abierta / 1 columna si está cerrada */}
         <div className={clsx('grid gap-6 p-6', editable && 'lg:grid-cols-2')}>
@@ -184,12 +251,12 @@ export default function DetalleIncidencia({ id, onClose }: { id: string; onClose
                   </div>
                   <div>
                     <label className={label}>Fecha mod. WMS</label>
-                    <input className={input} placeholder="dd/MM/yyyy HH:mm:ss" value={form.fecha_modific_wms} onChange={set('fecha_modific_wms')} disabled={!editando}/>
+                    <input className={input} placeholder="dd/MM/yyyy HH:mm:ss" value={form.fecha_modific_wms} disabled={!editando}/>
                   </div>
                 </div>
                 <div>
                   <label className={label}>Ubicación hallazgo</label>
-                  <input className={input} value={form.ubicacion_hallazgo} onChange={set('ubicacion_hallazgo')} disabled={!editando}/>
+                  <input className={input} value={form.ubicacion_hallazgo} disabled={!editando}/>
                 </div>
                 <div>
                   <label className={label}>Observaciones revisión</label>
@@ -230,12 +297,10 @@ export default function DetalleIncidencia({ id, onClose }: { id: string; onClose
                   )}
                 </div>
               )}
-
-
             </section>
           )}
 
-          {/* Historial a lo ancho */}
+          {/* Historial a lo ancho (con diffs de auditoría) */}
           <section className={clsx(editable && 'lg:col-span-2')}>
             <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-muted">Historial</h3>
             <ul>
@@ -245,28 +310,35 @@ export default function DetalleIncidencia({ id, onClose }: { id: string; onClose
                   {i < hist.length - 1 && <span className="absolute left-[4px] top-5 h-full w-0.5 bg-line" />}
                   <span className="font-mono text-[11px] text-muted">{h.f}</span>
                   <p className="font-medium">{h.t}</p>
+                  {h.diffs && h.diffs.length > 0 && (
+                    <ul className="mt-1.5 space-y-1 rounded-lg border border-line/60 bg-surface2/50 px-3 py-2">
+                      {h.diffs.map((d, j) => (
+                        <li key={j} className="text-xs font-medium text-muted">{d}</li>
+                      ))}
+                    </ul>
+                  )}
                 </li>
               ))}
             </ul>
           </section>
 
-        {aviso && (
+          {aviso && (
             <div className="fixed inset-0 z-[60] grid place-items-center p-4">
-            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setAviso(null)} />
-            <div className="relative w-full max-w-sm rounded-xl border border-line bg-surface p-6 text-center shadow-card">
+              <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setAviso(null)} />
+              <div className="relative w-full max-w-sm rounded-xl border border-line bg-surface p-6 text-center shadow-card">
                 <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-ok/15 text-ok">
-                <CheckCircle2 size={24} />
+                  <CheckCircle2 size={24} />
                 </span>
                 <p className="mt-3 text-sm font-bold">{aviso.texto}</p>
                 <button
-                onClick={() => setAviso(null)}
-                className="mt-4 h-10 w-full rounded-lg bg-adecco text-sm font-bold text-white transition hover:bg-adecco-hover"
+                  onClick={() => setAviso(null)}
+                  className="mt-4 h-10 w-full rounded-lg bg-adecco text-sm font-bold text-white transition hover:bg-adecco-hover"
                 >
-                Aceptar
+                  Aceptar
                 </button>
-          </div>
-        </div>
-      )}          
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

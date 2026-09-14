@@ -3,7 +3,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Inbox, Bot, ClipboardCheck, Forklift, Layers,
   Sun, Moon, LogOut, Bell, Settings, Menu, X, ChevronsLeft, ChevronsRight, RefreshCw,
-  CalendarDays, Radio, Users, ClipboardPlus, Database,
+  CalendarDays, Radio, Users, ClipboardPlus, 
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useTheme } from '../../context/ThemeContext'
@@ -210,20 +210,12 @@ export default function AppShell() {
 
       {/* ===== CONTENIDO (se ajusta al colapso) + loader/error ===== */}
       <main className={clsx('px-4 pb-24 pt-5 transition-[padding] duration-300 lg:pb-8 lg:pr-8 lg:pt-7', pad)}>
-        {cargando ? (
-          <div className="flex flex-col items-center justify-center gap-3 py-24 text-muted">
-            <RefreshCw size={28} className="animate-spin text-adecco" />
-            <span className="flex items-center gap-1.5 rounded-full border border-adecco/30 bg-adecco/10 px-3 py-1 text-xs font-bold text-adecco">
-              <Database size={12} />
-              Turso
-            </span>
-          </div>
-        ) : error ? (
-          <div className="mx-auto max-w-md rounded-xl border border-red-500/30 bg-red-500/10 p-6 text-center">
+        {error && (
+          <div className="mx-auto mb-4 max-w-md rounded-xl border border-red-500/30 bg-red-500/10 p-6 text-center">
             <p className="text-sm font-bold text-red-600 dark:text-[#ff4d58]">No se pudo cargar datos de Turso</p>
             <p className="mt-1 text-xs text-muted">{error}</p>
             <div className="mt-4 flex justify-center gap-2">
-              <button onClick={() => void recargar()} className="h-9 rounded-lg bg-adecco px-4 text-xs font-bold text-white hover:bg-adecco-hover">
+              <button onClick={() => void recargar(true)} className="h-9 rounded-lg bg-adecco px-4 text-xs font-bold text-white hover:bg-adecco-hover">
                 Reintentar
               </button>
               <button onClick={usarMockManual} className="h-9 rounded-lg border border-line px-4 text-xs font-bold text-muted hover:text-ink">
@@ -231,9 +223,8 @@ export default function AppShell() {
               </button>
             </div>
           </div>
-        ) : (
-          <Outlet />
         )}
+        <Outlet />
       </main>
 
       {/* ===== BOTTOM NAV MÓVIL ===== */}

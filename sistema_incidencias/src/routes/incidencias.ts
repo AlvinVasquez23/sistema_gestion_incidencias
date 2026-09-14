@@ -15,3 +15,15 @@ export const incidencias = async (c: Context<{ Bindings: Env }>) => {
   const all = resultados.flat().sort((a, b) => (b.ts || 0) - (a.ts || 0))
   return c.json({ ok: true, data: all })
 }
+
+export const sync = async (c: Context<{ Bindings: Env }>) => {
+  if (!(await auth(c))) return c.json({ ok: false, error: 'Sesión expirada' }, 401)
+  const db = getDb(c.env)
+  const res = await Promise.all(
+    Object.entries(TABLAS).map(([mod, tabla]) =>
+      db.execute(`SELECT MAX(ts) AS m, COUNT(*) AS n FROM ${tabla}`)
+        .then(q => `${mod}:${q.rows[0]?.m ?? 0}:${q.rows[0]?.n ?? 0}`),
+    ),
+  )
+  return c.json({ ok: true, data: { fp: res.join('|') } })
+}

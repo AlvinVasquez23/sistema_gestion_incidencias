@@ -75,12 +75,13 @@ export const corregir = async (c: Ctx) => {
   if (!tabla) return c.json({ ok: false, error: 'Módulo inválido' }, 400)
   const d = datosDe(b)
   const db = getDb(c.env)
-  const cur = await db.execute({ sql: `SELECT status, usuario_registro FROM ${tabla} WHERE id = ?`, args: [id] })
+  const cur = await db.execute({ sql: `SELECT * FROM ${tabla} WHERE id = ?`, args: [id] })
   if (!cur.rows[0]) return c.json({ ok: false, error: 'No encontrado' }, 404)
   if (String(cur.rows[0].usuario_registro || '') !== user.usuario)
     return c.json({ ok: false, error: 'Solo puedes corregir tus propias capturas' }, 403)
   if (String(cur.rows[0].status || '').toLowerCase() !== 'pendiente')
     return c.json({ ok: false, error: 'Solo se corrigen capturas pendientes' }, 400)
+
   const esApi = modulo === 'API' || modulo === 'AFR'
   await db.execute({
     sql: `UPDATE ${tabla} SET tipo_incidencia=?, ${esApi ? 'cubeta=?, articulo=?' : 'lpn=?, estacion=?, codigo=?, lote=?'}, cantidad=?, observacion=? WHERE id=?`,
@@ -88,6 +89,28 @@ export const corregir = async (c: Ctx) => {
       ? [S(d.tipo), S(d.cubeta), S(d.codigo), N(d.cantidad), S(d.observacion), id]
       : [S(d.tipo), S(d.lpn), S(d.estacion), S(d.codigo), S(d.lote), N(d.cantidad), S(d.observacion), id]) as InValue[],
   })
+
+  /* ===== Auditoría contra la verdad de la BD: fila ANTES vs fila DESPUÉS ===== */
+  const filaAntes = cur.rows[0] as Record<string, unknown>
+  const qDespues = await db.execute({ sql: `SELECT * FROM ${tabla} WHERE id = ?`, args: [id] })
+  const filaDespues = qDespues.rows[0] as Record<string, unknown>
+  const CAMPOS = esApi
+    ? ['tipo_incidencia', 'cubeta', 'articulo', 'cantidad', 'observacion']
+    : ['tipo_incidencia', 'lpn', 'estacion', 'codigo', 'lote', 'cantidad', 'observacion']
+  const antes: Record<string, unknown> = {}
+  const despues: Record<string, unknown> = {}
+  for (const k of CAMPOS) {
+    const va = k === 'cantidad' ? String(Number(filaAntes[k] ?? 0)) : String(filaAntes[k] ?? '')
+    const vb = k === 'cantidad' ? String(Number(filaDespues[k] ?? 0)) : String(filaDespues[k] ?? '')
+    if (va !== vb) { antes[k] = filaAntes[k] ?? ''; despues[k] = filaDespues[k] }
+  }
+  if (Object.keys(despues).length) {
+    const t = ahoraPE()
+    await db.execute({
+      sql: `INSERT INTO historial_modificaciones (incidencia_id, modulo, tipo_operacion, fecha, hora, ts, usuario, datos_anteriores, datos_nuevos) VALUES (?, ?, 'correccion', ?, ?, ?, ?, ?, ?)`,
+      args: [id, modulo, t.fecha, t.hora, Date.now(), user.usuario, JSON.stringify(antes), JSON.stringify(despues)] as InValue[],
+    })
+  }
   return c.json({ ok: true })
 }
 

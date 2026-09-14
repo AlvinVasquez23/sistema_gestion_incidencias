@@ -186,6 +186,24 @@ CREATE INDEX idx_aux_fecha ON incidencias_auxiliar(fecha);
 CREATE INDEX idx_aux_ts ON incidencias_auxiliar(ts DESC);
 CREATE INDEX idx_aux_auxiliar ON incidencias_auxiliar(auxiliar);
 
+-- =================== HISTORIAL DE MODIFICACIONES ===================
+
+CREATE TABLE historial_modificaciones (
+  id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+  incidencia_id        TEXT NOT NULL,
+  modulo               TEXT NOT NULL,            -- AMR, AUD, API, AFR, AUX
+  tipo_operacion       TEXT NOT NULL,            -- 'correccion', 'revision', 'cierre'
+  fecha                TEXT NOT NULL,
+  hora                 TEXT NOT NULL,
+  ts                   INTEGER NOT NULL,
+  usuario              TEXT NOT NULL,
+  datos_anteriores     TEXT NOT NULL,            -- JSON snapshot del estado antes del cambio
+  datos_nuevos         TEXT NOT NULL,            -- JSON snapshot del estado después del cambio
+  FOREIGN KEY(incidencia_id) REFERENCES incidencias_amr(id)  -- FK laxa (puede ser cualquier tabla)
+);
+CREATE INDEX idx_hist_incidencia ON historial_modificaciones(incidencia_id);
+CREATE INDEX idx_hist_fecha ON historial_modificaciones(ts DESC);
+
 -- =================== TABLA AUXILIAR: SESIONES ===================
 
 CREATE TABLE sesiones (
