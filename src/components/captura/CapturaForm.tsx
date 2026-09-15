@@ -39,14 +39,14 @@ interface Cfg {
 const CFG: Record<string, Cfg> = {
   AMR: {
     key: 'amr', titulo: 'Incidencias AMR', area: 'Decanting',
-    tipos: ['Faltante', 'Sobrante', 'Cruce SKU', 'Faltante de origen', 'Merma'],
+    tipos: ['Faltante', 'Sobrante', 'Cruce SKU', 'Faltante de origen','Diferencia MP', 'Merma'],
     campoId: 'lpn', labelId: 'LPN', usaEstacion: true, usaAuxiliar: true, usaCodigo: true,
     tiposCierreAuto: ['Faltante de origen'], conDescripcion: true,
     usaLote: true,  
   },
   AUD: {
     key: 'aud', titulo: 'Auditorías Reaba', area: 'Reabasto',
-    tipos: ['Faltante', 'Sobrante', 'Cruce SKU', 'Merma', 'Conforme'],
+    tipos: ['Faltante', 'Sobrante', 'Cruce SKU', 'Merma', 'Conforme','Diferencia MP'],
     campoId: 'lpn', labelId: 'LPN', usaEstacion: false, usaAuxiliar: true, usaCodigo: true,
     tipoSoloLpn: 'Conforme', tiposCierreAuto: ['Conforme'], conDescripcion: true,
     usaLote: true,
