@@ -251,12 +251,12 @@ export default function DetalleIncidencia({ id, onClose }: { id: string; onClose
                   </div>
                   <div>
                     <label className={label}>Fecha mod. WMS</label>
-                    <input className={input} placeholder="dd/MM/yyyy HH:mm:ss" value={form.fecha_modific_wms} disabled={!editando}/>
+                    <input className={input} placeholder="dd/MM/yyyy HH:mm:ss" value={form.fecha_modific_wms} onChange={set('fecha_modific_wms')} disabled={!editando}/>
                   </div>
                 </div>
                 <div>
                   <label className={label}>Ubicación hallazgo</label>
-                  <input className={input} value={form.ubicacion_hallazgo} disabled={!editando}/>
+                  <input className={input} value={form.ubicacion_hallazgo} onChange={set('ubicacion_hallazgo')} disabled={!editando}/>
                 </div>
                 <div>
                   <label className={label}>Observaciones revisión</label>
