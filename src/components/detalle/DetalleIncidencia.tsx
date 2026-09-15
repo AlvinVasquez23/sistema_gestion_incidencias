@@ -210,21 +210,21 @@ export default function DetalleIncidencia({ id, onClose }: { id: string; onClose
         {/* Cuerpo: 2 columnas si está abierta / 1 columna si está cerrada */}
         <div className={clsx('grid gap-6 p-6', editable && 'lg:grid-cols-2')}>
           {/* Detalle de incidencia */}
-          <section>
+          <section className="min-w-0">
             <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-muted">Detalle de incidencia</h3>
             <div className="divide-y divide-line/60 rounded-xl border border-line bg-surface2/50">
               {campos.map(([k, v]) => (
-                <div key={k} className="flex gap-3 px-4 py-2 text-sm">
-                  <span className="w-32 shrink-0 font-semibold text-muted">{k}</span>
-                  <span className={clsx(['Valorizado', 'Código', 'Artículo', 'LPN', 'Fecha revisión', 'Fecha cierre'].includes(k) && 'font-mono text-xs font-semibold')}>{v}</span>
-                </div>
+              <div key={k} className="flex gap-3 px-4 py-2 text-sm">
+                <span className="w-32 shrink-0 font-semibold text-muted">{k}</span>
+                <span className={clsx('min-w-0 flex-1 break-words', ['Valorizado', 'Código', 'Artículo', 'LPN', 'Fecha revisión', 'Fecha cierre'].includes(k) && 'font-mono text-xs font-semibold')}>{v}</span>
+              </div>
               ))}
             </div>
           </section>
 
           {/* Columna derecha: revisión + cierre (solo si está abierta) */}
           {editable && (
-            <section className="space-y-4">
+            <section className="min-w-0 space-y-4">
               <div className="space-y-3">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-muted">Revisión de incidencia</h3>
                 <div className="grid grid-cols-2 gap-3">
@@ -301,7 +301,7 @@ export default function DetalleIncidencia({ id, onClose }: { id: string; onClose
           )}
 
           {/* Historial a lo ancho (con diffs de auditoría) */}
-          <section className={clsx(editable && 'lg:col-span-2')}>
+          <section className={clsx('min-w-0', editable && 'lg:col-span-2')}>  
             <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-muted">Historial</h3>
             <ul>
               {hist.map((h, i) => (
